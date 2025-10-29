@@ -322,17 +322,21 @@ def main():
             pop_id = pop_options[selected_pop]
             
             st.subheader("Adicionar Nova Rota")
-            col1, col2 = st.columns([3, 1])
             
-            with col1:
-                nova_rota = st.text_input("Nome da Nova Rota", placeholder="Digite o nome da rota...", key="nova_rota_input")
-            
-            with col2:
-                add_button_key = generate_unique_key("add_rota_button", f"pop_{pop_id}")
-                if st.button("➕ Adicionar Rota", use_container_width=True, key=add_button_key):
+            # Usar um formulário para adicionar rota
+            with st.form("adicionar_rota_form"):
+                col1, col2 = st.columns([3, 1])
+                
+                with col1:
+                    nova_rota = st.text_input("Nome da Nova Rota*", placeholder="Digite o nome da rota...", key="nova_rota_input")
+                
+                with col2:
+                    submitted = st.form_submit_button("➕ Adicionar Rota", use_container_width=True)
+                
+                if submitted:
                     if nova_rota:
                         add_rota(pop_id, nova_rota)
-                        st.success(f"Rota '{nova_rota}' adicionada!")
+                        st.success(f"Rota '{nova_rota}' adicionada com sucesso!")
                         st.rerun()
                     else:
                         st.error("Digite um nome para a rota!")
@@ -376,14 +380,16 @@ def main():
                             )
                         
                         with col3:
-                            save_key = generate_unique_key("save_button", f"rota_{rota['id']}")
-                            if st.button("💾 Salvar", key=save_key, use_container_width=True):
-                                update_status_rota(rota['id'], novo_status, observacoes, usuario['username'])
-                                st.success("Status atualizado!")
-                                st.rerun()
+                            # Usar formulário para salvar alterações
+                            with st.form(f"salvar_rota_{rota['id']}"):
+                                save_submitted = st.form_submit_button("💾 Salvar", use_container_width=True)
+                                if save_submitted:
+                                    update_status_rota(rota['id'], novo_status, observacoes, usuario['username'])
+                                    st.success("Status atualizado!")
+                                    st.rerun()
                             
-                            delete_key = generate_unique_key("delete_button", f"rota_{rota['id']}")
-                            if st.button("🗑️ Excluir", key=delete_key, use_container_width=True):
+                            # Botão de excluir separado
+                            if st.button("🗑️ Excluir", key=f"delete_rota_{rota['id']}", use_container_width=True):
                                 delete_rota(rota['id'])
                                 st.success("Rota excluída!")
                                 st.rerun()
@@ -446,11 +452,13 @@ def main():
                             )
                         
                         with col2:
-                            save_key = generate_unique_key("user_save_button", f"rota_{rota['id']}")
-                            if st.button("💾 Salvar Alterações", key=save_key, use_container_width=True):
-                                update_status_rota(rota['id'], novo_status, observacoes, usuario['username'])
-                                st.success("Status atualizado com sucesso!")
-                                st.rerun()
+                            # Usar formulário para usuários também
+                            with st.form(f"user_salvar_rota_{rota['id']}"):
+                                save_submitted = st.form_submit_button("💾 Salvar Alterações", use_container_width=True)
+                                if save_submitted:
+                                    update_status_rota(rota['id'], novo_status, observacoes, usuario['username'])
+                                    st.success("Status atualizado com sucesso!")
+                                    st.rerun()
                         
                         if rota['data_atualizacao']:
                             data_formatada = pd.to_datetime(rota['data_atualizacao']).strftime('%d/%m/%Y %H:%M')
