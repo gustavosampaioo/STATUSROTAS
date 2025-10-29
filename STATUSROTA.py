@@ -128,7 +128,7 @@ def excluir_usuario(usuario_id):
     conn.commit()
     conn.close()
 
-# Funções para operações no banco de dados
+# Funções para operações no banco de dados (lógica original que funcionava)
 def add_pop(nome_pop, localizacao, capacidade):
     conn = sqlite3.connect('pops_rotas.db', check_same_thread=False)
     c = conn.cursor()
@@ -176,7 +176,9 @@ def update_status_rota(rota_id, novo_status, observacoes=None, usuario=None):
 def delete_pop(pop_id):
     conn = sqlite3.connect('pops_rotas.db', check_same_thread=False)
     c = conn.cursor()
+    # Primeiro deleta as rotas associadas
     c.execute('DELETE FROM rotas WHERE pop_id = ?', (pop_id,))
+    # Depois deleta o POP
     c.execute('DELETE FROM pops WHERE id = ?', (pop_id,))
     conn.commit()
     conn.close()
@@ -313,37 +315,35 @@ def main():
         pops_df = get_all_pops()
         
         if not pops_df.empty:
+            # Selecionar POP
             pop_options = {f"{row['nome_pop']} (ID: {row['id']})": row['id'] for _, row in pops_df.iterrows()}
             selected_pop = st.selectbox("Selecione um POP:", list(pop_options.keys()), key="pop_select_manage")
             pop_id = pop_options[selected_pop]
             
+            # Adicionar nova rota - LÓGICA ORIGINAL QUE FUNCIONAVA
             st.subheader("Adicionar Nova Rota")
+            col1, col2 = st.columns([3, 1])
             
-            # Usar um formulário para adicionar rota
-            with st.form("adicionar_rota_form"):
-                col1, col2 = st.columns([3, 1])
-                
-                with col1:
-                    nova_rota = st.text_input("Nome da Nova Rota*", placeholder="Digite o nome da rota...", key="nova_rota_input")
-                
-                with col2:
-                    submitted = st.form_submit_button("➕ Adicionar Rota", use_container_width=True)
-                
-                if submitted:
+            with col1:
+                nova_rota = st.text_input("Nome da Nova Rota", key="nova_rota_input")
+            
+            with col2:
+                # Botão simples como no código original
+                if st.button("➕ Adicionar Rota", key="add_rota_button"):
                     if nova_rota:
                         add_rota(pop_id, nova_rota)
-                        st.success(f"Rota '{nova_rota}' adicionada com sucesso!")
+                        st.success(f"Rota '{nova_rota}' adicionada!")
                         st.rerun()
                     else:
                         st.error("Digite um nome para a rota!")
             
+            # Listar e gerenciar rotas do POP selecionado - LÓGICA ORIGINAL
             st.subheader(f"Rotas do POP Selecionado")
             rotas_df = get_rotas_by_pop(pop_id)
             
             if not rotas_df.empty:
-                for index, rota in rotas_df.iterrows():
-                    # Usar uma chave simples baseada no ID da rota
-                    with st.expander(f"🛣️ {rota['nome_rota']} - Status: {rota['status']}", key=f"rota_{rota['id']}"):
+                for _, rota in rotas_df.iterrows():
+                    with st.expander(f"🛣️ {rota['nome_rota']} - Status: {rota['status']}", key=f"expander_{rota['id']}"):
                         col1, col2, col3 = st.columns([2, 2, 1])
                         
                         with col1:
@@ -369,21 +369,16 @@ def main():
                                 "Observações:",
                                 value=rota['observacoes'] if rota['observacoes'] else "",
                                 key=f"obs_{rota['id']}",
-                                height=100,
-                                placeholder="Digite observações sobre esta rota..."
+                                height=100
                             )
                         
                         with col3:
-                            # Usar formulário para salvar alterações
-                            with st.form(f"salvar_rota_{rota['id']}"):
-                                save_submitted = st.form_submit_button("💾 Salvar", use_container_width=True)
-                                if save_submitted:
-                                    update_status_rota(rota['id'], novo_status, observacoes, usuario['username'])
-                                    st.success("Status atualizado!")
-                                    st.rerun()
+                            if st.button("💾 Salvar", key=f"save_{rota['id']}"):
+                                update_status_rota(rota['id'], novo_status, observacoes, usuario['username'])
+                                st.success("Status atualizado!")
+                                st.rerun()
                             
-                            # Botão de excluir separado
-                            if st.button("🗑️ Excluir", key=f"delete_rota_{rota['id']}", use_container_width=True):
+                            if st.button("🗑️ Excluir", key=f"del_{rota['id']}"):
                                 delete_rota(rota['id'])
                                 st.success("Rota excluída!")
                                 st.rerun()
@@ -412,9 +407,8 @@ def main():
             rotas_df = get_rotas_by_pop(pop_id)
             
             if not rotas_df.empty:
-                for index, rota in rotas_df.iterrows():
-                    # Usar uma chave simples baseada no ID da rota
-                    with st.expander(f"🛣️ {rota['nome_rota']} - Status: {rota['status']}", key=f"user_rota_{rota['id']}"):
+                for _, rota in rotas_df.iterrows():
+                    with st.expander(f"🛣️ {rota['nome_rota']} - Status: {rota['status']}", key=f"user_expander_{rota['id']}"):
                         col1, col2 = st.columns([2, 1])
                         
                         with col1:
@@ -444,13 +438,10 @@ def main():
                             )
                         
                         with col2:
-                            # Usar formulário para usuários também
-                            with st.form(f"user_salvar_rota_{rota['id']}"):
-                                save_submitted = st.form_submit_button("💾 Salvar Alterações", use_container_width=True)
-                                if save_submitted:
-                                    update_status_rota(rota['id'], novo_status, observacoes, usuario['username'])
-                                    st.success("Status atualizado com sucesso!")
-                                    st.rerun()
+                            if st.button("💾 Salvar Alterações", key=f"user_save_{rota['id']}"):
+                                update_status_rota(rota['id'], novo_status, observacoes, usuario['username'])
+                                st.success("Status atualizado com sucesso!")
+                                st.rerun()
                         
                         if rota['data_atualizacao']:
                             data_formatada = pd.to_datetime(rota['data_atualizacao']).strftime('%d/%m/%Y %H:%M')
@@ -489,13 +480,15 @@ def main():
                 media_rotas = total_rotas / total_pops if total_pops > 0 else 0
                 st.metric("Média de rotas por POP", f"{media_rotas:.1f}")
             
-            st.subheader("Distribuição de Rotas por POP")
+            # Gráfico de rotas por POP
+            st.subheader("Rotas por POP")
             if total_rotas > 0:
                 chart_data = pops_df[['nome_pop', 'quantidade_rotas']].set_index('nome_pop')
                 st.bar_chart(chart_data)
             else:
                 st.info("Nenhuma rota cadastrada para exibir gráfico.")
             
+            # Status das rotas
             st.subheader("Status das Rotas")
             status_df = get_estatisticas_status()
             
