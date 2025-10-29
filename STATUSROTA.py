@@ -71,6 +71,7 @@ def init_db():
             nome_rota TEXT NOT NULL,
             status TEXT DEFAULT 'LANÇAMENTO PENDENTE',
             observacoes TEXT,
+            data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             data_atualizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             usuario_atualizacao TEXT,
             FOREIGN KEY (pop_id) REFERENCES pops (id),
@@ -233,7 +234,7 @@ def get_rotas_by_pop(pop_id):
         LEFT JOIN cidades c ON r.cidade_id = c.id 
         LEFT JOIN pops p ON r.pop_id = p.id 
         WHERE r.pop_id = ? 
-        ORDER BY c.nome_cidade, r.nome_rota
+        ORDER BY r.data_criacao ASC, r.id ASC
     ''', conn, params=(pop_id,))
     conn.close()
     return df
@@ -246,7 +247,7 @@ def get_rotas_by_cidade(cidade_id):
         LEFT JOIN cidades c ON r.cidade_id = c.id 
         LEFT JOIN pops p ON r.pop_id = p.id 
         WHERE r.cidade_id = ? 
-        ORDER BY r.nome_rota
+        ORDER BY r.data_criacao ASC, r.id ASC
     ''', conn, params=(cidade_id,))
     conn.close()
     return df
@@ -526,10 +527,14 @@ def main():
                                     st.success("Rota excluída!")
                                     st.rerun()
                             
+                            if rota['data_criacao']:
+                                data_criacao_formatada = pd.to_datetime(rota['data_criacao']).strftime('%d/%m/%Y %H:%M')
+                                st.caption(f"Data de criação: {data_criacao_formatada}")
+                            
                             if rota['data_atualizacao']:
-                                data_formatada = pd.to_datetime(rota['data_atualizacao']).strftime('%d/%m/%Y %H:%M')
+                                data_atualizacao_formatada = pd.to_datetime(rota['data_atualizacao']).strftime('%d/%m/%Y %H:%M')
                                 usuario_atualizacao = rota['usuario_atualizacao'] or 'N/A'
-                                st.caption(f"Última atualização: {data_formatada} por {usuario_atualizacao}")
+                                st.caption(f"Última atualização: {data_atualizacao_formatada} por {usuario_atualizacao}")
                 else:
                     st.info("Este POP não possui rotas cadastradas.")
             else:
@@ -599,10 +604,14 @@ def main():
                                     st.rerun()
                         
                         # Informações adicionais
+                        if rota['data_criacao']:
+                            data_criacao_formatada = pd.to_datetime(rota['data_criacao']).strftime('%d/%m/%Y %H:%M')
+                            st.caption(f"Data de criação: {data_criacao_formatada}")
+                        
                         if rota['data_atualizacao']:
-                            data_formatada = pd.to_datetime(rota['data_atualizacao']).strftime('%d/%m/%Y %H:%M')
+                            data_atualizacao_formatada = pd.to_datetime(rota['data_atualizacao']).strftime('%d/%m/%Y %H:%M')
                             usuario_atualizacao = rota['usuario_atualizacao'] or 'N/A'
-                            st.caption(f"Última atualização: {data_formatada} por {usuario_atualizacao}")
+                            st.caption(f"Última atualização: {data_atualizacao_formatada} por {usuario_atualizacao}")
                         
                         st.caption(f"ID da Rota: {rota['id']}")
                 
