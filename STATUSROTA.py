@@ -282,6 +282,51 @@ def get_estatisticas_status():
     conn.close()
     return df_lancamento, df_fusao
 
+# Função para gerar relatório copiável
+def gerar_relatorio_copiavel(pop_nome, rotas_df):
+    """Gera um relatório formatado para cópia"""
+    
+    # Mapeamento de emojis para status
+    emojis_lancamento = {
+        "PENDENTE": "☑️",
+        "EM ANDAMENTO": "⚙️",
+        "FINALIZADA": "✅"
+    }
+    
+    emojis_fusao = {
+        "PENDENTE": "☑️",
+        "EM ANDAMENTO": "⚙️",
+        "FINALIZADA": "✳️"
+    }
+    
+    emojis_alimentacao = {
+        "ALIMENTADA": "✴️",
+        "EM PRODUÇÃO": "⚙️",
+        "SEM SINAL PARCIAL": "⚠️",
+        "SEM SINAL TOTAL": "🚫"
+    }
+    
+    relatorio = f"POP {pop_nome}\n"
+    relatorio += "LEGENDA: (LANÇAMENTO: PENDENTE ☑️ / EM ANDAMENTO ⚙️ / FINALIZADA ✅)\n"
+    relatorio += "(FUSÃO: PENDENTE ☑️ / EM ANDAMENTO: ALIMENTADA ✴️, SEM SINAL PARCIAL ⚠️ / SEM SINAL TOTAL 🚫/ FINALIZADA ✳️)\n\n"
+    
+    for _, rota in rotas_df.iterrows():
+        # Emoji do lançamento
+        emoji_lancamento = emojis_lancamento.get(rota['status_lancamento'], "☑️")
+        
+        # Emoji da fusão
+        if rota['status_fusao'] == "EM ANDAMENTO" and rota['status_alimentacao']:
+            emoji_fusao = emojis_alimentacao.get(rota['status_alimentacao'], "⚙️")
+        else:
+            emoji_fusao = emojis_fusao.get(rota['status_fusao'], "☑️")
+        
+        # Usuário da última atualização
+        usuario = rota['usuario_atualizacao'] or 'N/A'
+        
+        relatorio += f"{rota['nome_rota']} - {emoji_lancamento}{emoji_fusao} {rota['nome_cidade']} ({usuario})\n"
+    
+    return relatorio
+
 # Sistema de autenticação
 def login():
     st.sidebar.title("🔐 Login")
@@ -596,8 +641,20 @@ def main():
             selected_pop = st.selectbox("Selecione um POP para visualizar rotas:", list(pop_options.keys()))
             pop_id = pop_options[selected_pop]
             
-            st.subheader(f"Rotas do POP: {selected_pop}")
+            # Extrair apenas o nome do POP (remover o ID)
+            pop_nome = selected_pop.split(' (ID:')[0]
+            
+            st.subheader(f"Rotas do POP: {pop_nome}")
             rotas_df = get_rotas_by_pop(pop_id)
+            
+            # Botão para copiar relatório
+            if not rotas_df.empty:
+                col1, col2 = st.columns([3, 1])
+                with col2:
+                    if st.button("📋 Copiar Relatório", use_container_width=True):
+                        relatorio = gerar_relatorio_copiavel(pop_nome, rotas_df)
+                        st.code(relatorio, language='text')
+                        st.success("Relatório gerado! Copie o texto acima.")
             
             if not rotas_df.empty:
                 st.info(f"Total de rotas encontradas: {len(rotas_df)}")
