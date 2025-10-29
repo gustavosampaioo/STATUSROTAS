@@ -408,8 +408,15 @@ def main():
             if not rotas_df.empty:
                 st.info(f"Total de rotas encontradas: {len(rotas_df)}")
                 
-                for _, rota in rotas_df.iterrows():
-                    with st.expander(f"🛣️ {rota['nome_rota']} - Status: {rota['status']}", key=f"view_{rota['id']}"):
+                for index, rota in rotas_df.iterrows():
+                    # Usar index para criar keys únicas sem caracteres especiais
+                    expander_key = f"view_expander_{pop_id}_{rota['id']}_{index}"
+                    status_key = f"user_status_{pop_id}_{rota['id']}_{index}"
+                    obs_key = f"user_obs_{pop_id}_{rota['id']}_{index}"
+                    save_key = f"user_save_{pop_id}_{rota['id']}_{index}"
+                    del_key = f"user_del_{pop_id}_{rota['id']}_{index}"
+                    
+                    with st.expander(f"🛣️ {rota['nome_rota']} - Status: {rota['status']}", key=expander_key):
                         col1, col2 = st.columns([2, 1])
                         
                         with col1:
@@ -421,7 +428,7 @@ def main():
                                     "FUSÃO PENDENTE",
                                     "FUSÃO FINALIZADA"
                                 ],
-                                key=f"user_status_{rota['id']}",
+                                key=status_key,
                                 index=[
                                     "LANÇAMENTO PENDENTE",
                                     "LANÇAMENTO FINALIZADO", 
@@ -433,20 +440,20 @@ def main():
                             observacoes = st.text_area(
                                 "Observações:",
                                 value=rota['observacoes'] if rota['observacoes'] else "",
-                                key=f"user_obs_{rota['id']}",
+                                key=obs_key,
                                 height=100,
                                 placeholder="Digite observações sobre esta rota..."
                             )
                         
                         with col2:
-                            if st.button("💾 Salvar Alterações", key=f"user_save_{rota['id']}"):
+                            if st.button("💾 Salvar Alterações", key=save_key):
                                 update_status_rota(rota['id'], novo_status, observacoes, usuario['username'])
                                 st.success("Status atualizado com sucesso!")
                                 st.rerun()
                             
                             # Botão de excluir apenas para admin
                             if usuario_eh_admin():
-                                if st.button("🗑️ Excluir Rota", key=f"user_del_{rota['id']}"):
+                                if st.button("🗑️ Excluir Rota", key=del_key):
                                     delete_rota(rota['id'])
                                     st.success("Rota excluída!")
                                     st.rerun()
