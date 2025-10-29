@@ -51,17 +51,30 @@ def init_db():
         )
     ''')
     
+    # Tabela de Cidades
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS cidades (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome_cidade TEXT NOT NULL,
+            pop_id INTEGER,
+            data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (pop_id) REFERENCES pops (id)
+        )
+    ''')
+    
     # Tabela de Rotas
     c.execute('''
         CREATE TABLE IF NOT EXISTS rotas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             pop_id INTEGER,
+            cidade_id INTEGER,
             nome_rota TEXT NOT NULL,
             status TEXT DEFAULT 'LANÇAMENTO PENDENTE',
             observacoes TEXT,
             data_atualizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             usuario_atualizacao TEXT,
-            FOREIGN KEY (pop_id) REFERENCES pops (id)
+            FOREIGN KEY (pop_id) REFERENCES pops (id),
+            FOREIGN KEY (cidade_id) REFERENCES cidades (id)
         )
     ''')
     
@@ -128,7 +141,7 @@ def excluir_usuario(usuario_id):
     conn.commit()
     conn.close()
 
-# Funções para operações no banco de dados
+# Funções para operações no banco de dados - POPs
 def add_pop(nome_pop, localizacao, capacidade):
     conn = sqlite3.connect('pops_rotas.db', check_same_thread=False)
     c = conn.cursor()
@@ -148,17 +161,93 @@ def get_all_pops():
     conn.close()
     return df
 
-def add_rota(pop_id, nome_rota):
+def delete_pop(pop_id):
     conn = sqlite3.connect('pops_rotas.db', check_same_thread=False)
     c = conn.cursor()
-    c.execute('INSERT INTO rotas (pop_id, nome_rota) VALUES (?, ?)',
-              (pop_id, nome_rota))
+    # Primeiro deleta as rotas associadas
+    c.execute('DELETE FROM rotas WHERE pop_id = ?', (pop_id,))
+    # Depois deleta as cidades associadas
+    c.execute('DELETE FROM cidades WHERE pop_id = ?', (pop_id,))
+    # Depois deleta o POP
+    c.execute('DELETE FROM pops WHERE id = ?', (pop_id,))
+    conn.commit()
+    conn.close()
+
+# Funções para operações no banco de dados - Cidades
+def add_cidade(nome_cidade, pop_id):
+    conn = sqlite3.connect('pops_rotas.db', check_same_thread=False)
+    c = conn.cursor()
+    c.execute('INSERT INTO cidades (nome_cidade, pop_id) VALUES (?, ?)',
+              (nome_cidade, pop_id))
+    conn.commit()
+    conn.close()
+
+def get_cidades_by_pop(pop_id):
+    conn = sqlite3.connect('pops_rotas.db', check_same_thread=False)
+    df = pd.read_sql('SELECT * FROM cidades WHERE pop_id = ? ORDER BY nome_cidade', conn, params=(pop_id,))
+    conn.close()
+    return df
+
+def get_all_cidades():
+    conn = sqlite3.connect('pops_rotas.db', check_same_thread=False)
+    df = pd.read_sql('''
+        SELECT c.*, p.nome_pop 
+        FROM cidades c 
+        LEFT JOIN pops p ON c.pop_id = p.id 
+        ORDER BY p.nome_pop, c.nome_cidade
+    ''', conn)
+    conn.close()
+    return df
+
+def delete_cidade(cidade_id):
+    conn = sqlite3.connect('pops_rotas.db', check_same_thread=False)
+    c = conn.cursor()
+    # Primeiro verifica se existem rotas vinculadas a esta cidade
+    c.execute('SELECT COUNT(*) FROM rotas WHERE cidade_id = ?', (cidade_id,))
+    count_rotas = c.fetchone()[0]
+    
+    if count_rotas > 0:
+        conn.close()
+        return False, f"Não é possível excluir a cidade pois existem {count_rotas} rota(s) vinculada(s) a ela."
+    
+    # Se não houver rotas vinculadas, exclui a cidade
+    c.execute('DELETE FROM cidades WHERE id = ?', (cidade_id,))
+    conn.commit()
+    conn.close()
+    return True, "Cidade excluída com sucesso!"
+
+# Funções para operações no banco de dados - Rotas
+def add_rota(pop_id, cidade_id, nome_rota):
+    conn = sqlite3.connect('pops_rotas.db', check_same_thread=False)
+    c = conn.cursor()
+    c.execute('INSERT INTO rotas (pop_id, cidade_id, nome_rota) VALUES (?, ?, ?)',
+              (pop_id, cidade_id, nome_rota))
     conn.commit()
     conn.close()
 
 def get_rotas_by_pop(pop_id):
     conn = sqlite3.connect('pops_rotas.db', check_same_thread=False)
-    df = pd.read_sql('SELECT * FROM rotas WHERE pop_id = ? ORDER BY nome_rota', conn, params=(pop_id,))
+    df = pd.read_sql('''
+        SELECT r.*, c.nome_cidade, p.nome_pop 
+        FROM rotas r 
+        LEFT JOIN cidades c ON r.cidade_id = c.id 
+        LEFT JOIN pops p ON r.pop_id = p.id 
+        WHERE r.pop_id = ? 
+        ORDER BY c.nome_cidade, r.nome_rota
+    ''', conn, params=(pop_id,))
+    conn.close()
+    return df
+
+def get_rotas_by_cidade(cidade_id):
+    conn = sqlite3.connect('pops_rotas.db', check_same_thread=False)
+    df = pd.read_sql('''
+        SELECT r.*, c.nome_cidade, p.nome_pop 
+        FROM rotas r 
+        LEFT JOIN cidades c ON r.cidade_id = c.id 
+        LEFT JOIN pops p ON r.pop_id = p.id 
+        WHERE r.cidade_id = ? 
+        ORDER BY r.nome_rota
+    ''', conn, params=(cidade_id,))
     conn.close()
     return df
 
@@ -170,16 +259,6 @@ def update_status_rota(rota_id, novo_status, observacoes=None, usuario=None):
         SET status = ?, observacoes = ?, data_atualizacao = CURRENT_TIMESTAMP, usuario_atualizacao = ?
         WHERE id = ?
     ''', (novo_status, observacoes, usuario, rota_id))
-    conn.commit()
-    conn.close()
-
-def delete_pop(pop_id):
-    conn = sqlite3.connect('pops_rotas.db', check_same_thread=False)
-    c = conn.cursor()
-    # Primeiro deleta as rotas associadas
-    c.execute('DELETE FROM rotas WHERE pop_id = ?', (pop_id,))
-    # Depois deleta o POP
-    c.execute('DELETE FROM pops WHERE id = ?', (pop_id,))
     conn.commit()
     conn.close()
 
@@ -249,7 +328,7 @@ def main():
     
     # Menu baseado na permissão
     if usuario_eh_admin():
-        menu_options = ["Cadastrar POP", "Listar POPs", "Gerenciar Rotas", "Visualizar Rotas", "Estatísticas", "Gerenciar Usuários"]
+        menu_options = ["Cadastrar POP", "Cadastrar Cidade", "Listar POPs", "Listar Cidades", "Gerenciar Rotas", "Visualizar Rotas", "Estatísticas", "Gerenciar Usuários"]
     else:
         menu_options = ["Visualizar Rotas", "Estatísticas"]
     
@@ -277,6 +356,35 @@ def main():
                     st.rerun()
                 else:
                     st.error("Nome do POP é obrigatório!")
+    
+    elif menu == "Cadastrar Cidade" and usuario_eh_admin():
+        st.header("🏙️ Cadastrar Nova Cidade")
+        
+        pops_df = get_all_pops()
+        
+        if not pops_df.empty:
+            with st.form("cadastro_cidade"):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    nome_cidade = st.text_input("Nome da Cidade*")
+                
+                with col2:
+                    pop_options = {f"{row['nome_pop']} (ID: {row['id']})": row['id'] for _, row in pops_df.iterrows()}
+                    selected_pop = st.selectbox("Selecione o POP*:", list(pop_options.keys()))
+                    pop_id = pop_options[selected_pop]
+                
+                submitted = st.form_submit_button("Cadastrar Cidade")
+                
+                if submitted:
+                    if nome_cidade:
+                        add_cidade(nome_cidade, pop_id)
+                        st.success(f"Cidade '{nome_cidade}' cadastrada com sucesso no POP '{selected_pop}'!")
+                        st.rerun()
+                    else:
+                        st.error("Nome da cidade é obrigatório!")
+        else:
+            st.info("Cadastre um POP primeiro para vincular cidades.")
     
     elif menu == "Listar POPs" and usuario_eh_admin():
         st.header("📋 Lista de POPs")
@@ -309,6 +417,33 @@ def main():
         else:
             st.info("Nenhum POP cadastrado ainda.")
     
+    elif menu == "Listar Cidades" and usuario_eh_admin():
+        st.header("🏙️ Lista de Cidades")
+        
+        cidades_df = get_all_cidades()
+        
+        if not cidades_df.empty:
+            cidades_df_display = cidades_df.copy()
+            cidades_df_display['data_criacao'] = pd.to_datetime(cidades_df_display['data_criacao']).dt.strftime('%d/%m/%Y %H:%M')
+            
+            st.dataframe(cidades_df_display, use_container_width=True)
+            
+            st.subheader("Ações")
+            cidade_options = {f"{row['nome_cidade']} (POP: {row['nome_pop']})": row['id'] for _, row in cidades_df.iterrows()}
+            selected_cidade = st.selectbox("Selecione uma cidade para excluir:", list(cidade_options.keys()))
+            
+            if st.button("🗑️ Excluir Cidade Selecionada"):
+                cidade_id = cidade_options[selected_cidade]
+                sucesso, mensagem = delete_cidade(cidade_id)
+                if sucesso:
+                    st.success(mensagem)
+                else:
+                    st.error(mensagem)
+                st.rerun()
+                    
+        else:
+            st.info("Nenhuma cidade cadastrada ainda.")
+    
     elif menu == "Gerenciar Rotas" and usuario_eh_admin():
         st.header("🛣️ Gerenciar Rotas")
         
@@ -320,74 +455,85 @@ def main():
             selected_pop = st.selectbox("Selecione um POP:", list(pop_options.keys()))
             pop_id = pop_options[selected_pop]
             
-            # Adicionar nova rota
-            st.subheader("Adicionar Nova Rota")
-            col1, col2 = st.columns([3, 1])
+            # Buscar cidades do POP selecionado
+            cidades_df = get_cidades_by_pop(pop_id)
             
-            with col1:
-                nova_rota = st.text_input("Nome da Nova Rota")
-            
-            with col2:
-                if st.button("➕ Adicionar Rota"):
-                    if nova_rota:
-                        add_rota(pop_id, nova_rota)
-                        st.success(f"Rota '{nova_rota}' adicionada!")
-                        st.rerun()
-                    else:
-                        st.error("Digite um nome para a rota!")
-            
-            # Listar e gerenciar rotas do POP selecionado
-            st.subheader(f"Rotas do POP Selecionado")
-            rotas_df = get_rotas_by_pop(pop_id)
-            
-            if not rotas_df.empty:
-                for _, rota in rotas_df.iterrows():
-                    with st.expander(f"🛣️ {rota['nome_rota']} - Status: {rota['status']}"):
-                        col1, col2, col3 = st.columns([2, 2, 1])
-                        
-                        with col1:
-                            novo_status = st.selectbox(
-                                "Atualizar Status:",
-                                [
-                                    "LANÇAMENTO PENDENTE",
-                                    "LANÇAMENTO FINALIZADO", 
-                                    "FUSÃO PENDENTE",
-                                    "FUSÃO FINALIZADA"
-                                ],
-                                key=f"status_{rota['id']}",
-                                index=[
-                                    "LANÇAMENTO PENDENTE",
-                                    "LANÇAMENTO FINALIZADO", 
-                                    "FUSÃO PENDENTE",
-                                    "FUSÃO FINALIZADA"
-                                ].index(rota['status'])
-                            )
-                        
-                        with col2:
-                            observacoes = st.text_area(
-                                "Observações:",
-                                value=rota['observacoes'] if rota['observacoes'] else "",
-                                key=f"obs_{rota['id']}",
-                                height=100
-                            )
-                        
-                        with col3:
-                            if st.button("💾 Salvar", key=f"save_{rota['id']}"):
-                                update_status_rota(rota['id'], novo_status, observacoes, usuario['username'])
-                                st.success("Status atualizado!")
-                                st.rerun()
+            if not cidades_df.empty:
+                # Adicionar nova rota
+                st.subheader("Adicionar Nova Rota")
+                col1, col2, col3 = st.columns([2, 2, 1])
+                
+                with col1:
+                    nome_rota = st.text_input("Nome da Rota*")
+                
+                with col2:
+                    cidade_options = {row['nome_cidade']: row['id'] for _, row in cidades_df.iterrows()}
+                    selected_cidade = st.selectbox("Selecione a Cidade*:", list(cidade_options.keys()))
+                    cidade_id = cidade_options[selected_cidade]
+                
+                with col3:
+                    if st.button("➕ Adicionar Rota"):
+                        if nome_rota:
+                            add_rota(pop_id, cidade_id, nome_rota)
+                            st.success(f"Rota '{nome_rota}' adicionada para a cidade '{selected_cidade}'!")
+                            st.rerun()
+                        else:
+                            st.error("Digite um nome para a rota!")
+                
+                # Listar e gerenciar rotas do POP selecionado
+                st.subheader(f"Rotas do POP: {selected_pop}")
+                rotas_df = get_rotas_by_pop(pop_id)
+                
+                if not rotas_df.empty:
+                    for _, rota in rotas_df.iterrows():
+                        with st.expander(f"🛣️ {rota['nome_rota']} - Cidade: {rota['nome_cidade']} - Status: {rota['status']}"):
+                            col1, col2, col3 = st.columns([2, 2, 1])
                             
-                            if st.button("🗑️ Excluir", key=f"del_{rota['id']}"):
-                                delete_rota(rota['id'])
-                                st.success("Rota excluída!")
-                                st.rerun()
-                        
-                        if rota['data_atualizacao']:
-                            data_formatada = pd.to_datetime(rota['data_atualizacao']).strftime('%d/%m/%Y %H:%M')
-                            usuario_atualizacao = rota['usuario_atualizacao'] or 'N/A'
-                            st.caption(f"Última atualização: {data_formatada} por {usuario_atualizacao}")
+                            with col1:
+                                novo_status = st.selectbox(
+                                    "Atualizar Status:",
+                                    [
+                                        "LANÇAMENTO PENDENTE",
+                                        "LANÇAMENTO FINALIZADO", 
+                                        "FUSÃO PENDENTE",
+                                        "FUSÃO FINALIZADA"
+                                    ],
+                                    key=f"status_{rota['id']}",
+                                    index=[
+                                        "LANÇAMENTO PENDENTE",
+                                        "LANÇAMENTO FINALIZADO", 
+                                        "FUSÃO PENDENTE",
+                                        "FUSÃO FINALIZADA"
+                                    ].index(rota['status'])
+                                )
+                            
+                            with col2:
+                                observacoes = st.text_area(
+                                    "Observações:",
+                                    value=rota['observacoes'] if rota['observacoes'] else "",
+                                    key=f"obs_{rota['id']}",
+                                    height=100
+                                )
+                            
+                            with col3:
+                                if st.button("💾 Salvar", key=f"save_{rota['id']}"):
+                                    update_status_rota(rota['id'], novo_status, observacoes, usuario['username'])
+                                    st.success("Status atualizado!")
+                                    st.rerun()
+                                
+                                if st.button("🗑️ Excluir", key=f"del_{rota['id']}"):
+                                    delete_rota(rota['id'])
+                                    st.success("Rota excluída!")
+                                    st.rerun()
+                            
+                            if rota['data_atualizacao']:
+                                data_formatada = pd.to_datetime(rota['data_atualizacao']).strftime('%d/%m/%Y %H:%M')
+                                usuario_atualizacao = rota['usuario_atualizacao'] or 'N/A'
+                                st.caption(f"Última atualização: {data_formatada} por {usuario_atualizacao}")
+                else:
+                    st.info("Este POP não possui rotas cadastradas.")
             else:
-                st.info("Este POP não possui rotas cadastradas.")
+                st.info("Este POP não possui cidades cadastradas. Cadastre cidades primeiro.")
                 
         else:
             st.info("Cadastre um POP primeiro para gerenciar rotas.")
@@ -408,9 +554,9 @@ def main():
             if not rotas_df.empty:
                 st.info(f"Total de rotas encontradas: {len(rotas_df)}")
                 
-                # Exibir as rotas em expanders (igual em Gerenciar Rotas)
+                # Exibir as rotas em expanders
                 for _, rota in rotas_df.iterrows():
-                    with st.expander(f"🛣️ {rota['nome_rota']} - Status: {rota['status']}", expanded=False):
+                    with st.expander(f"🛣️ {rota['nome_rota']} - Cidade: {rota['nome_cidade']} - Status: {rota['status']}", expanded=False):
                         col1, col2, col3 = st.columns([2, 2, 1])
                         
                         with col1:
@@ -473,29 +619,30 @@ def main():
         st.header("📈 Estatísticas do Sistema")
         
         pops_df = get_all_pops()
+        cidades_df = get_all_cidades()
         
         if not pops_df.empty:
             col1, col2, col3, col4 = st.columns(4)
             
             total_pops = len(pops_df)
+            total_cidades = len(cidades_df) if not cidades_df.empty else 0
             total_rotas = pops_df['quantidade_rotas'].sum()
             
             with col1:
                 st.metric("Total de POPs", total_pops)
             
             with col2:
-                st.metric("Total de Rotas", total_rotas)
+                st.metric("Total de Cidades", total_cidades)
             
             with col3:
-                if total_rotas > 0:
-                    pop_mais_rotas = pops_df.loc[pops_df['quantidade_rotas'].idxmax()]
-                    st.metric("POP com mais rotas", f"{pop_mais_rotas['nome_pop']} ({pop_mais_rotas['quantidade_rotas']})")
-                else:
-                    st.metric("POP com mais rotas", "N/A")
+                st.metric("Total de Rotas", total_rotas)
             
             with col4:
-                media_rotas = total_rotas / total_pops if total_pops > 0 else 0
-                st.metric("Média de rotas por POP", f"{media_rotas:.1f}")
+                if total_pops > 0:
+                    media_rotas = total_rotas / total_pops
+                    st.metric("Média de rotas por POP", f"{media_rotas:.1f}")
+                else:
+                    st.metric("Média de rotas por POP", "0")
             
             # Gráfico de rotas por POP
             st.subheader("Rotas por POP")
