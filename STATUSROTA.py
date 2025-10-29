@@ -525,6 +525,9 @@ def main():
                                     index=["PENDENTE", "EM ANDAMENTO", "FINALIZADA"].index(rota['status_fusao'])
                                 )
                                 
+                                # Inicializar status_alimentacao com o valor atual
+                                status_alimentacao = rota['status_alimentacao']
+                                
                                 if status_fusao == "EM ANDAMENTO":
                                     st.write("**Status Alimentação:**")
                                     col_btn1, col_btn2 = st.columns(2)
@@ -558,7 +561,6 @@ def main():
                                     )
                                 else:
                                     observacoes_fusao = rota['observacoes_fusao']
-                                    status_alimentacao = rota['status_alimentacao']
                             
                             # Botões de ação
                             col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 2])
@@ -660,6 +662,9 @@ def main():
                                 index=["PENDENTE", "EM ANDAMENTO", "FINALIZADA"].index(rota['status_fusao'])
                             )
                             
+                            # Inicializar status_alimentacao com o valor atual
+                            status_alimentacao = rota['status_alimentacao']
+                            
                             if status_fusao == "EM ANDAMENTO":
                                 st.write("**Status Alimentação:**")
                                 col_btn1, col_btn2 = st.columns(2)
@@ -693,7 +698,6 @@ def main():
                                 )
                             else:
                                 observacoes_fusao = rota['observacoes_fusao']
-                                status_alimentacao = rota['status_alimentacao']
                         
                         # Botões de ação
                         col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 2])
