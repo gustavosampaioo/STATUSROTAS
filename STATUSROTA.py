@@ -408,68 +408,27 @@ def main():
             if not rotas_df.empty:
                 st.info(f"Total de rotas encontradas: {len(rotas_df)}")
                 
-                # Exibir as rotas em expanders como em "Gerenciar Rotas"
+                # Exibir as rotas em cards simples sem expanders problemáticos
                 for index, rota in rotas_df.iterrows():
-                    # Criar uma key única e simples para o expander
-                    expander_key = f"view_{pop_id}_{rota['id']}_{index}"
-                    
-                    with st.expander(f"🛣️ {rota['nome_rota']} - Status: {rota['status']}", key=expander_key):
-                        col1, col2, col3 = st.columns([2, 2, 1])
-                        
-                        with col1:
-                            # Criar key única para o selectbox
-                            status_key = f"user_status_{pop_id}_{rota['id']}_{index}"
-                            novo_status = st.selectbox(
-                                "Atualizar Status:",
-                                [
-                                    "LANÇAMENTO PENDENTE",
-                                    "LANÇAMENTO FINALIZADO", 
-                                    "FUSÃO PENDENTE",
-                                    "FUSÃO FINALIZADA"
-                                ],
-                                key=status_key,
-                                index=[
-                                    "LANÇAMENTO PENDENTE",
-                                    "LANÇAMENTO FINALIZADO", 
-                                    "FUSÃO PENDENTE",
-                                    "FUSÃO FINALIZADA"
-                                ].index(rota['status'])
-                            )
-                        
-                        with col2:
-                            # Criar key única para o text_area
-                            obs_key = f"user_obs_{pop_id}_{rota['id']}_{index}"
-                            observacoes = st.text_area(
-                                "Observações:",
-                                value=rota['observacoes'] if rota['observacoes'] else "",
-                                key=obs_key,
-                                height=100,
-                                placeholder="Digite observações sobre esta rota..."
-                            )
-                        
-                        with col3:
-                            # Criar key única para o botão de salvar
-                            save_key = f"user_save_{pop_id}_{rota['id']}_{index}"
-                            if st.button("💾 Salvar", key=save_key):
-                                update_status_rota(rota['id'], novo_status, observacoes, usuario['username'])
-                                st.success("Status atualizado com sucesso!")
-                                st.rerun()
-                            
-                            # Botão de excluir apenas para admin
-                            if usuario_eh_admin():
-                                del_key = f"user_del_{pop_id}_{rota['id']}_{index}"
-                                if st.button("🗑️ Excluir", key=del_key):
-                                    delete_rota(rota['id'])
-                                    st.success("Rota excluída!")
-                                    st.rerun()
-                        
-                        # Informações adicionais da rota
+                    # Criar um container para cada rota
+                    with st.container():
                         st.markdown("---")
+                        
+                        # Header da rota
+                        col_header1, col_header2 = st.columns([3, 1])
+                        with col_header1:
+                            st.subheader(f"🛣️ {rota['nome_rota']}")
+                        with col_header2:
+                            st.write(f"**Status:** {rota['status']}")
+                        
+                        # Informações da rota
                         col_info1, col_info2 = st.columns(2)
                         with col_info1:
                             st.write(f"**ID da Rota:** {rota['id']}")
                             if rota['observacoes']:
                                 st.write(f"**Observações atuais:** {rota['observacoes']}")
+                            else:
+                                st.write("**Observações atuais:** Nenhuma observação cadastrada")
                         
                         with col_info2:
                             if rota['data_atualizacao']:
@@ -477,6 +436,54 @@ def main():
                                 usuario_atualizacao = rota['usuario_atualizacao'] or 'N/A'
                                 st.write(f"**Última atualização:** {data_formatada}")
                                 st.write(f"**Por:** {usuario_atualizacao}")
+                        
+                        # Formulário para atualização (apenas status e observações)
+                        st.markdown("### Atualizar Status")
+                        with st.form(key=f"form_update_{pop_id}_{rota['id']}_{index}"):
+                            col_form1, col_form2 = st.columns(2)
+                            
+                            with col_form1:
+                                novo_status = st.selectbox(
+                                    "Novo Status:",
+                                    [
+                                        "LANÇAMENTO PENDENTE",
+                                        "LANÇAMENTO FINALIZADO", 
+                                        "FUSÃO PENDENTE",
+                                        "FUSÃO FINALIZADA"
+                                    ],
+                                    key=f"status_{pop_id}_{rota['id']}_{index}",
+                                    index=[
+                                        "LANÇAMENTO PENDENTE",
+                                        "LANÇAMENTO FINALIZADO", 
+                                        "FUSÃO PENDENTE",
+                                        "FUSÃO FINALIZADA"
+                                    ].index(rota['status'])
+                                )
+                            
+                            with col_form2:
+                                nova_observacao = st.text_area(
+                                    "Nova Observação:",
+                                    value=rota['observacoes'] if rota['observacoes'] else "",
+                                    key=f"obs_{pop_id}_{rota['id']}_{index}",
+                                    height=100,
+                                    placeholder="Digite uma nova observação..."
+                                )
+                            
+                            # Botões de ação
+                            col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 2])
+                            with col_btn1:
+                                submitted = st.form_submit_button("💾 Salvar Alterações")
+                            with col_btn2:
+                                if usuario_eh_admin():
+                                    if st.form_submit_button("🗑️ Excluir Rota"):
+                                        delete_rota(rota['id'])
+                                        st.success("Rota excluída!")
+                                        st.rerun()
+                            
+                            if submitted:
+                                update_status_rota(rota['id'], novo_status, nova_observacao, usuario['username'])
+                                st.success("Status atualizado com sucesso!")
+                                st.rerun()
                 
                 st.markdown("---")
             else:
