@@ -925,22 +925,6 @@ if 'logado' in st.session_state and st.session_state['logado']:
     st.sidebar.markdown("---")
     st.sidebar.info(
         "**Sistema de Gerenciamento de POPs e Rotas**\n\n"
-        "**Permissões:**\n"
-        "• 👑 ADMIN: Acesso total ao sistema\n"
-        "• 👤 USER: Visualizar e atualizar status de rotas\n\n"
-        "**Status de Lançamento:**\n"
-        "• 🔴 PENDENTE\n"
-        "• 🟡 EM ANDAMENTO\n" 
-        "• 🟢 FINALIZADA\n\n"
-        "**Status de Fusão:**\n"
-        "• 🔴 PENDENTE\n"
-        "• 🟡 EM ANDAMENTO\n"
-        "• 🟢 FINALIZADA\n\n"
-        "**Status de Alimentação (quando Fusão em ANDAMENTO):**\n"
-        "• 🟢 ALIMENTADA\n"
-        "• 🟡 EM PRODUÇÃO\n"
-        "• 🟠 SEM SINAL PARCIAL\n"
-        "• 🔴 SEM SINAL TOTAL"
     )
 
 # Executar aplicação
