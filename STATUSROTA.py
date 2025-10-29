@@ -69,8 +69,11 @@ def init_db():
             pop_id INTEGER,
             cidade_id INTEGER,
             nome_rota TEXT NOT NULL,
-            status TEXT DEFAULT 'LANÇAMENTO PENDENTE',
-            observacoes TEXT,
+            status_lancamento TEXT DEFAULT 'PENDENTE',
+            status_fusao TEXT DEFAULT 'PENDENTE',
+            observacoes_lancamento TEXT,
+            observacoes_fusao TEXT,
+            status_alimentacao TEXT,
             data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             data_atualizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             usuario_atualizacao TEXT,
@@ -252,14 +255,16 @@ def get_rotas_by_cidade(cidade_id):
     conn.close()
     return df
 
-def update_status_rota(rota_id, novo_status, observacoes=None, usuario=None):
+def update_status_rota(rota_id, status_lancamento, status_fusao, observacoes_lancamento=None, observacoes_fusao=None, status_alimentacao=None, usuario=None):
     conn = sqlite3.connect('pops_rotas.db', check_same_thread=False)
     c = conn.cursor()
     c.execute('''
         UPDATE rotas 
-        SET status = ?, observacoes = ?, data_atualizacao = CURRENT_TIMESTAMP, usuario_atualizacao = ?
+        SET status_lancamento = ?, status_fusao = ?, observacoes_lancamento = ?, 
+            observacoes_fusao = ?, status_alimentacao = ?, 
+            data_atualizacao = CURRENT_TIMESTAMP, usuario_atualizacao = ?
         WHERE id = ?
-    ''', (novo_status, observacoes, usuario, rota_id))
+    ''', (status_lancamento, status_fusao, observacoes_lancamento, observacoes_fusao, status_alimentacao, usuario, rota_id))
     conn.commit()
     conn.close()
 
@@ -272,9 +277,10 @@ def delete_rota(rota_id):
 
 def get_estatisticas_status():
     conn = sqlite3.connect('pops_rotas.db', check_same_thread=False)
-    df = pd.read_sql('SELECT status, COUNT(*) as count FROM rotas GROUP BY status', conn)
+    df_lancamento = pd.read_sql('SELECT status_lancamento as status, COUNT(*) as count FROM rotas GROUP BY status_lancamento', conn)
+    df_fusao = pd.read_sql('SELECT status_fusao as status, COUNT(*) as count FROM rotas GROUP BY status_fusao', conn)
     conn.close()
-    return df
+    return df_lancamento, df_fusao
 
 # Sistema de autenticação
 def login():
@@ -487,46 +493,90 @@ def main():
                 
                 if not rotas_df.empty:
                     for _, rota in rotas_df.iterrows():
-                        with st.expander(f"🛣️ {rota['nome_rota']} - Cidade: {rota['nome_cidade']} - Status: {rota['status']}"):
-                            col1, col2, col3 = st.columns([2, 2, 1])
+                        with st.expander(f"🛣️ {rota['nome_rota']} - Cidade: {rota['nome_cidade']}"):
+                            col1, col2 = st.columns(2)
                             
                             with col1:
-                                novo_status = st.selectbox(
-                                    "Atualizar Status:",
-                                    [
-                                        "LANÇAMENTO PENDENTE",
-                                        "LANÇAMENTO FINALIZADO", 
-                                        "FUSÃO PENDENTE",
-                                        "FUSÃO FINALIZADA"
-                                    ],
-                                    key=f"status_{rota['id']}",
-                                    index=[
-                                        "LANÇAMENTO PENDENTE",
-                                        "LANÇAMENTO FINALIZADO", 
-                                        "FUSÃO PENDENTE",
-                                        "FUSÃO FINALIZADA"
-                                    ].index(rota['status'])
+                                st.subheader("📡 Status Lançamento")
+                                status_lancamento = st.selectbox(
+                                    "Status Lançamento:",
+                                    ["PENDENTE", "EM ANDAMENTO", "FINALIZADA"],
+                                    key=f"lanc_{rota['id']}",
+                                    index=["PENDENTE", "EM ANDAMENTO", "FINALIZADA"].index(rota['status_lancamento'])
                                 )
+                                
+                                if status_lancamento == "EM ANDAMENTO":
+                                    observacoes_lancamento = st.text_area(
+                                        "Observações Lançamento:",
+                                        value=rota['observacoes_lancamento'] if rota['observacoes_lancamento'] else "",
+                                        key=f"obs_lanc_{rota['id']}",
+                                        height=100,
+                                        placeholder="Digite observações sobre o andamento do lançamento..."
+                                    )
+                                else:
+                                    observacoes_lancamento = rota['observacoes_lancamento']
                             
                             with col2:
-                                observacoes = st.text_area(
-                                    "Observações:",
-                                    value=rota['observacoes'] if rota['observacoes'] else "",
-                                    key=f"obs_{rota['id']}",
-                                    height=100
+                                st.subheader("🔗 Status Fusão")
+                                status_fusao = st.selectbox(
+                                    "Status Fusão:",
+                                    ["PENDENTE", "EM ANDAMENTO", "FINALIZADA"],
+                                    key=f"fusao_{rota['id']}",
+                                    index=["PENDENTE", "EM ANDAMENTO", "FINALIZADA"].index(rota['status_fusao'])
                                 )
+                                
+                                if status_fusao == "EM ANDAMENTO":
+                                    st.write("**Status Alimentação:**")
+                                    col_btn1, col_btn2 = st.columns(2)
+                                    with col_btn1:
+                                        if st.button("🟢 ALIMENTADA", key=f"alim_{rota['id']}"):
+                                            status_alimentacao = "ALIMENTADA"
+                                            update_status_rota(rota['id'], rota['status_lancamento'], status_fusao, 
+                                                              rota['observacoes_lancamento'], rota['observacoes_fusao'], 
+                                                              status_alimentacao, usuario['username'])
+                                            st.success("Status de alimentação atualizado!")
+                                            st.rerun()
+                                    with col_btn2:
+                                        if st.button("🔴 SEM SINAL", key=f"sem_sinal_{rota['id']}"):
+                                            status_alimentacao = "SEM SINAL"
+                                            update_status_rota(rota['id'], rota['status_lancamento'], status_fusao, 
+                                                              rota['observacoes_lancamento'], rota['observacoes_fusao'], 
+                                                              status_alimentacao, usuario['username'])
+                                            st.success("Status de alimentação atualizado!")
+                                            st.rerun()
+                                    
+                                    # Mostrar status atual da alimentação
+                                    if rota['status_alimentacao']:
+                                        st.info(f"Status atual: {rota['status_alimentacao']}")
+                                    
+                                    observacoes_fusao = st.text_area(
+                                        "Observações Fusão:",
+                                        value=rota['observacoes_fusao'] if rota['observacoes_fusao'] else "",
+                                        key=f"obs_fusao_{rota['id']}",
+                                        height=100,
+                                        placeholder="Digite observações sobre o andamento da fusão..."
+                                    )
+                                else:
+                                    observacoes_fusao = rota['observacoes_fusao']
+                                    status_alimentacao = rota['status_alimentacao']
                             
-                            with col3:
-                                if st.button("💾 Salvar", key=f"save_{rota['id']}"):
-                                    update_status_rota(rota['id'], novo_status, observacoes, usuario['username'])
+                            # Botões de ação
+                            col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 2])
+                            with col_btn1:
+                                if st.button("💾 Salvar Alterações", key=f"save_{rota['id']}"):
+                                    update_status_rota(rota['id'], status_lancamento, status_fusao, 
+                                                      observacoes_lancamento, observacoes_fusao, 
+                                                      status_alimentacao, usuario['username'])
                                     st.success("Status atualizado!")
                                     st.rerun()
-                                
-                                if st.button("🗑️ Excluir", key=f"del_{rota['id']}"):
+                            
+                            with col_btn2:
+                                if st.button("🗑️ Excluir Rota", key=f"del_{rota['id']}"):
                                     delete_rota(rota['id'])
                                     st.success("Rota excluída!")
                                     st.rerun()
                             
+                            # Informações da rota
                             if rota['data_criacao']:
                                 data_criacao_formatada = pd.to_datetime(rota['data_criacao']).strftime('%d/%m/%Y %H:%M')
                                 st.caption(f"Data de criação: {data_criacao_formatada}")
@@ -561,49 +611,108 @@ def main():
                 
                 # Exibir as rotas em expanders
                 for _, rota in rotas_df.iterrows():
-                    with st.expander(f"🛣️ {rota['nome_rota']} - Cidade: {rota['nome_cidade']} - Status: {rota['status']}", expanded=False):
-                        col1, col2, col3 = st.columns([2, 2, 1])
+                    # Criar um badge de status resumido
+                    status_lancamento = rota['status_lancamento']
+                    status_fusao = rota['status_fusao']
+                    
+                    # Definir cores para os status
+                    cores_lancamento = {
+                        "PENDENTE": "🔴",
+                        "EM ANDAMENTO": "🟡", 
+                        "FINALIZADA": "🟢"
+                    }
+                    
+                    cores_fusao = {
+                        "PENDENTE": "🔴",
+                        "EM ANDAMENTO": "🟡",
+                        "FINALIZADA": "🟢"
+                    }
+                    
+                    with st.expander(f"🛣️ {rota['nome_rota']} - Cidade: {rota['nome_cidade']} - Lançamento: {cores_lancamento[status_lancamento]} {status_lancamento} - Fusão: {cores_fusao[status_fusao]} {status_fusao}", expanded=False):
+                        col1, col2 = st.columns(2)
                         
                         with col1:
-                            novo_status = st.selectbox(
-                                "Atualizar Status:",
-                                [
-                                    "LANÇAMENTO PENDENTE",
-                                    "LANÇAMENTO FINALIZADO", 
-                                    "FUSÃO PENDENTE",
-                                    "FUSÃO FINALIZADA"
-                                ],
-                                key=f"status_view_{rota['id']}",
-                                index=[
-                                    "LANÇAMENTO PENDENTE",
-                                    "LANÇAMENTO FINALIZADO", 
-                                    "FUSÃO PENDENTE",
-                                    "FUSÃO FINALIZADA"
-                                ].index(rota['status'])
+                            st.subheader("📡 Status Lançamento")
+                            status_lancamento = st.selectbox(
+                                "Status Lançamento:",
+                                ["PENDENTE", "EM ANDAMENTO", "FINALIZADA"],
+                                key=f"lanc_view_{rota['id']}",
+                                index=["PENDENTE", "EM ANDAMENTO", "FINALIZADA"].index(rota['status_lancamento'])
                             )
+                            
+                            if status_lancamento == "EM ANDAMENTO":
+                                observacoes_lancamento = st.text_area(
+                                    "Observações Lançamento:",
+                                    value=rota['observacoes_lancamento'] if rota['observacoes_lancamento'] else "",
+                                    key=f"obs_lanc_view_{rota['id']}",
+                                    height=100,
+                                    placeholder="Digite observações sobre o andamento do lançamento..."
+                                )
+                            else:
+                                observacoes_lancamento = rota['observacoes_lancamento']
                         
                         with col2:
-                            observacoes = st.text_area(
-                                "Observações:",
-                                value=rota['observacoes'] if rota['observacoes'] else "",
-                                key=f"obs_view_{rota['id']}",
-                                height=100
+                            st.subheader("🔗 Status Fusão")
+                            status_fusao = st.selectbox(
+                                "Status Fusão:",
+                                ["PENDENTE", "EM ANDAMENTO", "FINALIZADA"],
+                                key=f"fusao_view_{rota['id']}",
+                                index=["PENDENTE", "EM ANDAMENTO", "FINALIZADA"].index(rota['status_fusao'])
                             )
+                            
+                            if status_fusao == "EM ANDAMENTO":
+                                st.write("**Status Alimentação:**")
+                                col_btn1, col_btn2 = st.columns(2)
+                                with col_btn1:
+                                    if st.button("🟢 ALIMENTADA", key=f"alim_view_{rota['id']}"):
+                                        status_alimentacao = "ALIMENTADA"
+                                        update_status_rota(rota['id'], rota['status_lancamento'], status_fusao, 
+                                                          rota['observacoes_lancamento'], rota['observacoes_fusao'], 
+                                                          status_alimentacao, usuario['username'])
+                                        st.success("Status de alimentação atualizado!")
+                                        st.rerun()
+                                with col_btn2:
+                                    if st.button("🔴 SEM SINAL", key=f"sem_sinal_view_{rota['id']}"):
+                                        status_alimentacao = "SEM SINAL"
+                                        update_status_rota(rota['id'], rota['status_lancamento'], status_fusao, 
+                                                          rota['observacoes_lancamento'], rota['observacoes_fusao'], 
+                                                          status_alimentacao, usuario['username'])
+                                        st.success("Status de alimentação atualizado!")
+                                        st.rerun()
+                                
+                                # Mostrar status atual da alimentação
+                                if rota['status_alimentacao']:
+                                    st.info(f"Status atual: {rota['status_alimentacao']}")
+                                
+                                observacoes_fusao = st.text_area(
+                                    "Observações Fusão:",
+                                    value=rota['observacoes_fusao'] if rota['observacoes_fusao'] else "",
+                                    key=f"obs_fusao_view_{rota['id']}",
+                                    height=100,
+                                    placeholder="Digite observações sobre o andamento da fusão..."
+                                )
+                            else:
+                                observacoes_fusao = rota['observacoes_fusao']
+                                status_alimentacao = rota['status_alimentacao']
                         
-                        with col3:
-                            if st.button("💾 Salvar", key=f"save_view_{rota['id']}"):
-                                update_status_rota(rota['id'], novo_status, observacoes, usuario['username'])
+                        # Botões de ação
+                        col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 2])
+                        with col_btn1:
+                            if st.button("💾 Salvar Alterações", key=f"save_view_{rota['id']}"):
+                                update_status_rota(rota['id'], status_lancamento, status_fusao, 
+                                                  observacoes_lancamento, observacoes_fusao, 
+                                                  status_alimentacao, usuario['username'])
                                 st.success("Status atualizado!")
                                 st.rerun()
-                            
-                            # Apenas admin pode excluir rotas
+                        
+                        with col_btn2:
                             if usuario_eh_admin():
-                                if st.button("🗑️ Excluir", key=f"del_view_{rota['id']}"):
+                                if st.button("🗑️ Excluir Rota", key=f"del_view_{rota['id']}"):
                                     delete_rota(rota['id'])
                                     st.success("Rota excluída!")
                                     st.rerun()
                         
-                        # Informações adicionais
+                        # Informações da rota
                         if rota['data_criacao']:
                             data_criacao_formatada = pd.to_datetime(rota['data_criacao']).strftime('%d/%m/%Y %H:%M')
                             st.caption(f"Data de criação: {data_criacao_formatada}")
@@ -612,8 +721,6 @@ def main():
                             data_atualizacao_formatada = pd.to_datetime(rota['data_atualizacao']).strftime('%d/%m/%Y %H:%M')
                             usuario_atualizacao = rota['usuario_atualizacao'] or 'N/A'
                             st.caption(f"Última atualização: {data_atualizacao_formatada} por {usuario_atualizacao}")
-                        
-                        st.caption(f"ID da Rota: {rota['id']}")
                 
                 # Botão para atualizar a lista
                 if st.button("🔄 Atualizar Lista de Rotas"):
@@ -629,6 +736,7 @@ def main():
         
         pops_df = get_all_pops()
         cidades_df = get_all_cidades()
+        df_lancamento, df_fusao = get_estatisticas_status()
         
         if not pops_df.empty:
             col1, col2, col3, col4 = st.columns(4)
@@ -661,20 +769,31 @@ def main():
             else:
                 st.info("Nenhuma rota cadastrada para exibir gráfico.")
             
-            # Status das rotas
-            st.subheader("Status das Rotas")
-            status_df = get_estatisticas_status()
-            
-            if not status_df.empty:
+            # Status das rotas - Lançamento
+            st.subheader("Status de Lançamento das Rotas")
+            if not df_lancamento.empty:
                 col1, col2 = st.columns([1, 2])
                 
                 with col1:
-                    st.dataframe(status_df, use_container_width=True)
+                    st.dataframe(df_lancamento, use_container_width=True)
                 
                 with col2:
-                    st.bar_chart(status_df.set_index('status'))
+                    st.bar_chart(df_lancamento.set_index('status'))
             else:
-                st.info("Nenhuma rota cadastrada para análise de status.")
+                st.info("Nenhuma rota cadastrada para análise de status de lançamento.")
+            
+            # Status das rotas - Fusão
+            st.subheader("Status de Fusão das Rotas")
+            if not df_fusao.empty:
+                col1, col2 = st.columns([1, 2])
+                
+                with col1:
+                    st.dataframe(df_fusao, use_container_width=True)
+                
+                with col2:
+                    st.bar_chart(df_fusao.set_index('status'))
+            else:
+                st.info("Nenhuma rota cadastrada para análise de status de fusão.")
             
         else:
             st.info("Nenhum dado disponível para estatísticas.")
@@ -751,11 +870,17 @@ if 'logado' in st.session_state and st.session_state['logado']:
         "**Permissões:**\n"
         "• 👑 ADMIN: Acesso total ao sistema\n"
         "• 👤 USER: Visualizar e atualizar status de rotas\n\n"
-        "**Status disponíveis:**\n"
-        "• 🟡 LANÇAMENTO PENDENTE\n"
-        "• 🟢 LANÇAMENTO FINALIZADO\n" 
-        "• 🟠 FUSÃO PENDENTE\n"
-        "• 🔵 FUSÃO FINALIZADA"
+        "**Status de Lançamento:**\n"
+        "• 🔴 PENDENTE\n"
+        "• 🟡 EM ANDAMENTO\n" 
+        "• 🟢 FINALIZADA\n\n"
+        "**Status de Fusão:**\n"
+        "• 🔴 PENDENTE\n"
+        "• 🟡 EM ANDAMENTO\n"
+        "• 🟢 FINALIZADA\n\n"
+        "**Status de Alimentação (quando Fusão em ANDAMENTO):**\n"
+        "• 🟢 ALIMENTADA\n"
+        "• 🔴 SEM SINAL"
     )
 
 # Executar aplicação
