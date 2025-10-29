@@ -392,200 +392,200 @@ def main():
         else:
             st.info("Cadastre um POP primeiro para gerenciar rotas.")
     
-elif menu == "Visualizar Rotas":
-    st.header("👀 Visualizar e Atualizar Rotas")
-    
-    pops_df = get_all_pops()
-    
-    if not pops_df.empty:
-        pop_options = {f"{row['nome_pop']} (ID: {row['id']})": row['id'] for _, row in pops_df.iterrows()}
-        selected_pop = st.selectbox("Selecione um POP para visualizar rotas:", list(pop_options.keys()))
-        pop_id = pop_options[selected_pop]
-        
-        st.subheader(f"Rotas do POP: {selected_pop}")
-        rotas_df = get_rotas_by_pop(pop_id)
-        
-        if not rotas_df.empty:
-            st.info(f"Total de rotas encontradas: {len(rotas_df)}")
-            
-            # Exibir as rotas em expanders (igual em Gerenciar Rotas)
-            for _, rota in rotas_df.iterrows():
-                with st.expander(f"🛣️ {rota['nome_rota']} - Status: {rota['status']}", expanded=False):
-                    col1, col2, col3 = st.columns([2, 2, 1])
-                    
-                    with col1:
-                        novo_status = st.selectbox(
-                            "Atualizar Status:",
-                            [
-                                "LANÇAMENTO PENDENTE",
-                                "LANÇAMENTO FINALIZADO", 
-                                "FUSÃO PENDENTE",
-                                "FUSÃO FINALIZADA"
-                            ],
-                            key=f"status_view_{rota['id']}",
-                            index=[
-                                "LANÇAMENTO PENDENTE",
-                                "LANÇAMENTO FINALIZADO", 
-                                "FUSÃO PENDENTE",
-                                "FUSÃO FINALIZADA"
-                            ].index(rota['status'])
-                        )
-                    
-                    with col2:
-                        observacoes = st.text_area(
-                            "Observações:",
-                            value=rota['observacoes'] if rota['observacoes'] else "",
-                            key=f"obs_view_{rota['id']}",
-                            height=100
-                        )
-                    
-                    with col3:
-                        if st.button("💾 Salvar", key=f"save_view_{rota['id']}"):
-                            update_status_rota(rota['id'], novo_status, observacoes, usuario['username'])
-                            st.success("Status atualizado!")
-                            st.rerun()
-                        
-                        # Apenas admin pode excluir rotas
-                        if usuario_eh_admin():
-                            if st.button("🗑️ Excluir", key=f"del_view_{rota['id']}"):
-                                delete_rota(rota['id'])
-                                st.success("Rota excluída!")
-                                st.rerun()
-                    
-                    # Informações adicionais
-                    if rota['data_atualizacao']:
-                        data_formatada = pd.to_datetime(rota['data_atualizacao']).strftime('%d/%m/%Y %H:%M')
-                        usuario_atualizacao = rota['usuario_atualizacao'] or 'N/A'
-                        st.caption(f"Última atualização: {data_formatada} por {usuario_atualizacao}")
-                    
-                    st.caption(f"ID da Rota: {rota['id']}")
-            
-            # Botão para atualizar a lista
-            if st.button("🔄 Atualizar Lista de Rotas"):
-                st.rerun()
-                
-        else:
-            st.info("Este POP não possui rotas cadastradas.")
-    else:
-        st.info("Nenhum POP cadastrado no sistema.")
-    
-    elif menu == "Estatísticas":
-        st.header("📈 Estatísticas do Sistema")
+    elif menu == "Visualizar Rotas":
+        st.header("👀 Visualizar e Atualizar Rotas")
         
         pops_df = get_all_pops()
         
         if not pops_df.empty:
-            col1, col2, col3, col4 = st.columns(4)
+            pop_options = {f"{row['nome_pop']} (ID: {row['id']})": row['id'] for _, row in pops_df.iterrows()}
+            selected_pop = st.selectbox("Selecione um POP para visualizar rotas:", list(pop_options.keys()))
+            pop_id = pop_options[selected_pop]
             
-            total_pops = len(pops_df)
-            total_rotas = pops_df['quantidade_rotas'].sum()
+            st.subheader(f"Rotas do POP: {selected_pop}")
+            rotas_df = get_rotas_by_pop(pop_id)
             
-            with col1:
-                st.metric("Total de POPs", total_pops)
-            
-            with col2:
-                st.metric("Total de Rotas", total_rotas)
-            
-            with col3:
-                if total_rotas > 0:
-                    pop_mais_rotas = pops_df.loc[pops_df['quantidade_rotas'].idxmax()]
-                    st.metric("POP com mais rotas", f"{pop_mais_rotas['nome_pop']} ({pop_mais_rotas['quantidade_rotas']})")
-                else:
-                    st.metric("POP com mais rotas", "N/A")
-            
-            with col4:
-                media_rotas = total_rotas / total_pops if total_pops > 0 else 0
-                st.metric("Média de rotas por POP", f"{media_rotas:.1f}")
-            
-            # Gráfico de rotas por POP
-            st.subheader("Rotas por POP")
-            if total_rotas > 0:
-                chart_data = pops_df[['nome_pop', 'quantidade_rotas']].set_index('nome_pop')
-                st.bar_chart(chart_data)
-            else:
-                st.info("Nenhuma rota cadastrada para exibir gráfico.")
-            
-            # Status das rotas
-            st.subheader("Status das Rotas")
-            status_df = get_estatisticas_status()
-            
-            if not status_df.empty:
-                col1, col2 = st.columns([1, 2])
+            if not rotas_df.empty:
+                st.info(f"Total de rotas encontradas: {len(rotas_df)}")
                 
-                with col1:
-                    st.dataframe(status_df, use_container_width=True)
+                # Exibir as rotas em expanders (igual em Gerenciar Rotas)
+                for _, rota in rotas_df.iterrows():
+                    with st.expander(f"🛣️ {rota['nome_rota']} - Status: {rota['status']}", expanded=False):
+                        col1, col2, col3 = st.columns([2, 2, 1])
+                        
+                        with col1:
+                            novo_status = st.selectbox(
+                                "Atualizar Status:",
+                                [
+                                    "LANÇAMENTO PENDENTE",
+                                    "LANÇAMENTO FINALIZADO", 
+                                    "FUSÃO PENDENTE",
+                                    "FUSÃO FINALIZADA"
+                                ],
+                                key=f"status_view_{rota['id']}",
+                                index=[
+                                    "LANÇAMENTO PENDENTE",
+                                    "LANÇAMENTO FINALIZADO", 
+                                    "FUSÃO PENDENTE",
+                                    "FUSÃO FINALIZADA"
+                                ].index(rota['status'])
+                            )
+                        
+                        with col2:
+                            observacoes = st.text_area(
+                                "Observações:",
+                                value=rota['observacoes'] if rota['observacoes'] else "",
+                                key=f"obs_view_{rota['id']}",
+                                height=100
+                            )
+                        
+                        with col3:
+                            if st.button("💾 Salvar", key=f"save_view_{rota['id']}"):
+                                update_status_rota(rota['id'], novo_status, observacoes, usuario['username'])
+                                st.success("Status atualizado!")
+                                st.rerun()
+                            
+                            # Apenas admin pode excluir rotas
+                            if usuario_eh_admin():
+                                if st.button("🗑️ Excluir", key=f"del_view_{rota['id']}"):
+                                    delete_rota(rota['id'])
+                                    st.success("Rota excluída!")
+                                    st.rerun()
+                        
+                        # Informações adicionais
+                        if rota['data_atualizacao']:
+                            data_formatada = pd.to_datetime(rota['data_atualizacao']).strftime('%d/%m/%Y %H:%M')
+                            usuario_atualizacao = rota['usuario_atualizacao'] or 'N/A'
+                            st.caption(f"Última atualização: {data_formatada} por {usuario_atualizacao}")
+                        
+                        st.caption(f"ID da Rota: {rota['id']}")
                 
-                with col2:
-                    st.bar_chart(status_df.set_index('status'))
-            else:
-                st.info("Nenhuma rota cadastrada para análise de status.")
-            
-        else:
-            st.info("Nenhum dado disponível para estatísticas.")
-    
-    elif menu == "Gerenciar Usuários" and usuario_eh_admin():
-        st.header("👥 Gerenciar Usuários")
-        
-        tab1, tab2 = st.tabs(["Cadastrar Novo Usuário", "Lista de Usuários"])
-        
-        with tab1:
-            st.subheader("Cadastrar Novo Usuário")
-            
-            with st.form("cadastro_usuario"):
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    username = st.text_input("Nome de usuário*")
-                    nome_completo = st.text_input("Nome completo*")
-                    matricula = st.text_input("Matrícula*")
-                
-                with col2:
-                    password = st.text_input("Senha*", type="password")
-                    confirm_password = st.text_input("Confirmar senha*", type="password")
-                    permissao = st.selectbox("Permissão", ["USER", "ADMIN"])
-                
-                submitted = st.form_submit_button("Cadastrar Usuário")
-                
-                if submitted:
-                    if not all([username, nome_completo, matricula, password, confirm_password]):
-                        st.error("Todos os campos são obrigatórios!")
-                    elif password != confirm_password:
-                        st.error("As senhas não coincidem!")
-                    elif len(password) < 4:
-                        st.error("A senha deve ter pelo menos 4 caracteres!")
-                    else:
-                        if criar_usuario(username, password, nome_completo, matricula, permissao):
-                            st.success(f"Usuário '{username}' cadastrado com sucesso!")
-                            st.rerun()
-                        else:
-                            st.error("Erro ao cadastrar usuário. Nome de usuário ou matrícula já existem.")
-        
-        with tab2:
-            st.subheader("Usuários Cadastrados")
-            
-            usuarios_df = get_all_usuarios()
-            
-            if not usuarios_df.empty:
-                usuarios_df_display = usuarios_df.copy()
-                usuarios_df_display['data_criacao'] = pd.to_datetime(usuarios_df_display['data_criacao']).dt.strftime('%d/%m/%Y %H:%M')
-                
-                st.dataframe(usuarios_df_display, use_container_width=True)
-                
-                st.subheader("Ações")
-                usuario_options = {f"{row['nome_completo']} ({row['username']})": row['id'] for _, row in usuarios_df.iterrows() if row['username'] != 'admin'}
-                
-                if usuario_options:
-                    selected_usuario = st.selectbox("Selecione um usuário para excluir:", list(usuario_options.keys()))
+                # Botão para atualizar a lista
+                if st.button("🔄 Atualizar Lista de Rotas"):
+                    st.rerun()
                     
-                    if st.button("🗑️ Excluir Usuário Selecionado"):
-                        usuario_id = usuario_options[selected_usuario]
-                        excluir_usuario(usuario_id)
-                        st.success("Usuário excluído com sucesso!")
-                        st.rerun()
-                else:
-                    st.info("Nenhum usuário disponível para exclusão (exceto admin).")
             else:
-                st.info("Nenhum usuário cadastrado além do admin.")
+                st.info("Este POP não possui rotas cadastradas.")
+        else:
+            st.info("Nenhum POP cadastrado no sistema.")
+        
+        elif menu == "Estatísticas":
+            st.header("📈 Estatísticas do Sistema")
+            
+            pops_df = get_all_pops()
+            
+            if not pops_df.empty:
+                col1, col2, col3, col4 = st.columns(4)
+                
+                total_pops = len(pops_df)
+                total_rotas = pops_df['quantidade_rotas'].sum()
+                
+                with col1:
+                    st.metric("Total de POPs", total_pops)
+                
+                with col2:
+                    st.metric("Total de Rotas", total_rotas)
+                
+                with col3:
+                    if total_rotas > 0:
+                        pop_mais_rotas = pops_df.loc[pops_df['quantidade_rotas'].idxmax()]
+                        st.metric("POP com mais rotas", f"{pop_mais_rotas['nome_pop']} ({pop_mais_rotas['quantidade_rotas']})")
+                    else:
+                        st.metric("POP com mais rotas", "N/A")
+                
+                with col4:
+                    media_rotas = total_rotas / total_pops if total_pops > 0 else 0
+                    st.metric("Média de rotas por POP", f"{media_rotas:.1f}")
+                
+                # Gráfico de rotas por POP
+                st.subheader("Rotas por POP")
+                if total_rotas > 0:
+                    chart_data = pops_df[['nome_pop', 'quantidade_rotas']].set_index('nome_pop')
+                    st.bar_chart(chart_data)
+                else:
+                    st.info("Nenhuma rota cadastrada para exibir gráfico.")
+                
+                # Status das rotas
+                st.subheader("Status das Rotas")
+                status_df = get_estatisticas_status()
+                
+                if not status_df.empty:
+                    col1, col2 = st.columns([1, 2])
+                    
+                    with col1:
+                        st.dataframe(status_df, use_container_width=True)
+                    
+                    with col2:
+                        st.bar_chart(status_df.set_index('status'))
+                else:
+                    st.info("Nenhuma rota cadastrada para análise de status.")
+                
+            else:
+                st.info("Nenhum dado disponível para estatísticas.")
+        
+        elif menu == "Gerenciar Usuários" and usuario_eh_admin():
+            st.header("👥 Gerenciar Usuários")
+            
+            tab1, tab2 = st.tabs(["Cadastrar Novo Usuário", "Lista de Usuários"])
+            
+            with tab1:
+                st.subheader("Cadastrar Novo Usuário")
+                
+                with st.form("cadastro_usuario"):
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        username = st.text_input("Nome de usuário*")
+                        nome_completo = st.text_input("Nome completo*")
+                        matricula = st.text_input("Matrícula*")
+                    
+                    with col2:
+                        password = st.text_input("Senha*", type="password")
+                        confirm_password = st.text_input("Confirmar senha*", type="password")
+                        permissao = st.selectbox("Permissão", ["USER", "ADMIN"])
+                    
+                    submitted = st.form_submit_button("Cadastrar Usuário")
+                    
+                    if submitted:
+                        if not all([username, nome_completo, matricula, password, confirm_password]):
+                            st.error("Todos os campos são obrigatórios!")
+                        elif password != confirm_password:
+                            st.error("As senhas não coincidem!")
+                        elif len(password) < 4:
+                            st.error("A senha deve ter pelo menos 4 caracteres!")
+                        else:
+                            if criar_usuario(username, password, nome_completo, matricula, permissao):
+                                st.success(f"Usuário '{username}' cadastrado com sucesso!")
+                                st.rerun()
+                            else:
+                                st.error("Erro ao cadastrar usuário. Nome de usuário ou matrícula já existem.")
+            
+            with tab2:
+                st.subheader("Usuários Cadastrados")
+                
+                usuarios_df = get_all_usuarios()
+                
+                if not usuarios_df.empty:
+                    usuarios_df_display = usuarios_df.copy()
+                    usuarios_df_display['data_criacao'] = pd.to_datetime(usuarios_df_display['data_criacao']).dt.strftime('%d/%m/%Y %H:%M')
+                    
+                    st.dataframe(usuarios_df_display, use_container_width=True)
+                    
+                    st.subheader("Ações")
+                    usuario_options = {f"{row['nome_completo']} ({row['username']})": row['id'] for _, row in usuarios_df.iterrows() if row['username'] != 'admin'}
+                    
+                    if usuario_options:
+                        selected_usuario = st.selectbox("Selecione um usuário para excluir:", list(usuario_options.keys()))
+                        
+                        if st.button("🗑️ Excluir Usuário Selecionado"):
+                            usuario_id = usuario_options[selected_usuario]
+                            excluir_usuario(usuario_id)
+                            st.success("Usuário excluído com sucesso!")
+                            st.rerun()
+                    else:
+                        st.info("Nenhum usuário disponível para exclusão (exceto admin).")
+                else:
+                    st.info("Nenhum usuário cadastrado além do admin.")
 
 # Rodapé
 if 'logado' in st.session_state and st.session_state['logado']:
