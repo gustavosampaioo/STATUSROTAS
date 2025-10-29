@@ -21,10 +21,6 @@ def generate_session_token():
     """Gera token de sessão seguro"""
     return secrets.token_hex(32)
 
-def generate_unique_key(prefix, additional_info=""):
-    """Gera uma chave única para elementos do Streamlit"""
-    return f"{prefix}_{additional_info}_{secrets.token_hex(8)}"
-
 # Inicialização do banco de dados
 def init_db():
     conn = sqlite3.connect('pops_rotas.db', check_same_thread=False)
@@ -346,12 +342,11 @@ def main():
             
             if not rotas_df.empty:
                 for index, rota in rotas_df.iterrows():
-                    expander_key = generate_unique_key("rota_expander", f"rota_{rota['id']}")
-                    with st.expander(f"🛣️ {rota['nome_rota']} - Status: {rota['status']}", key=expander_key):
+                    # Usar uma chave simples baseada no ID da rota
+                    with st.expander(f"🛣️ {rota['nome_rota']} - Status: {rota['status']}", key=f"rota_{rota['id']}"):
                         col1, col2, col3 = st.columns([2, 2, 1])
                         
                         with col1:
-                            status_key = generate_unique_key("status_select", f"rota_{rota['id']}")
                             novo_status = st.selectbox(
                                 "Atualizar Status:",
                                 [
@@ -360,7 +355,7 @@ def main():
                                     "FUSÃO PENDENTE",
                                     "FUSÃO FINALIZADA"
                                 ],
-                                key=status_key,
+                                key=f"status_{rota['id']}",
                                 index=[
                                     "LANÇAMENTO PENDENTE",
                                     "LANÇAMENTO FINALIZADO", 
@@ -370,11 +365,10 @@ def main():
                             )
                         
                         with col2:
-                            obs_key = generate_unique_key("obs_text", f"rota_{rota['id']}")
                             observacoes = st.text_area(
                                 "Observações:",
                                 value=rota['observacoes'] if rota['observacoes'] else "",
-                                key=obs_key,
+                                key=f"obs_{rota['id']}",
                                 height=100,
                                 placeholder="Digite observações sobre esta rota..."
                             )
@@ -419,12 +413,11 @@ def main():
             
             if not rotas_df.empty:
                 for index, rota in rotas_df.iterrows():
-                    expander_key = generate_unique_key("user_rota_expander", f"rota_{rota['id']}")
-                    with st.expander(f"🛣️ {rota['nome_rota']} - Status: {rota['status']}", key=expander_key):
+                    # Usar uma chave simples baseada no ID da rota
+                    with st.expander(f"🛣️ {rota['nome_rota']} - Status: {rota['status']}", key=f"user_rota_{rota['id']}"):
                         col1, col2 = st.columns([2, 1])
                         
                         with col1:
-                            status_key = generate_unique_key("user_status_select", f"rota_{rota['id']}")
                             novo_status = st.selectbox(
                                 "Atualizar Status:",
                                 [
@@ -433,7 +426,7 @@ def main():
                                     "FUSÃO PENDENTE",
                                     "FUSÃO FINALIZADA"
                                 ],
-                                key=status_key,
+                                key=f"user_status_{rota['id']}",
                                 index=[
                                     "LANÇAMENTO PENDENTE",
                                     "LANÇAMENTO FINALIZADO", 
@@ -442,11 +435,10 @@ def main():
                                 ].index(rota['status'])
                             )
                             
-                            obs_key = generate_unique_key("user_obs_text", f"rota_{rota['id']}")
                             observacoes = st.text_area(
                                 "Observações:",
                                 value=rota['observacoes'] if rota['observacoes'] else "",
-                                key=obs_key,
+                                key=f"user_obs_{rota['id']}",
                                 height=100,
                                 placeholder="Digite observações sobre esta rota..."
                             )
