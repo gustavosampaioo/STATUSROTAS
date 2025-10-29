@@ -158,7 +158,7 @@ def add_rota(pop_id, nome_rota):
 
 def get_rotas_by_pop(pop_id):
     conn = sqlite3.connect('pops_rotas.db', check_same_thread=False)
-    df = pd.read_sql('SELECT * FROM rotas WHERE pop_id = ?', conn, params=(pop_id,))
+    df = pd.read_sql('SELECT * FROM rotas WHERE pop_id = ? ORDER BY nome_rota', conn, params=(pop_id,))
     conn.close()
     return df
 
@@ -249,7 +249,7 @@ def main():
     
     # Menu baseado na permissão
     if usuario_eh_admin():
-        menu_options = ["Cadastrar POP", "Listar POPs", "Gerenciar Rotas", "Estatísticas", "Gerenciar Usuários"]
+        menu_options = ["Cadastrar POP", "Listar POPs", "Gerenciar Rotas", "Visualizar Rotas", "Estatísticas", "Gerenciar Usuários"]
     else:
         menu_options = ["Visualizar Rotas", "Estatísticas"]
     
@@ -392,13 +392,13 @@ def main():
         else:
             st.info("Cadastre um POP primeiro para gerenciar rotas.")
     
-    elif menu == "Visualizar Rotas" and not usuario_eh_admin():
+    elif menu == "Visualizar Rotas":
         st.header("👀 Visualizar e Atualizar Rotas")
         
         pops_df = get_all_pops()
         
         if not pops_df.empty:
-            pop_options = {f"{row['nome_pop']}": row['id'] for _, row in pops_df.iterrows()}
+            pop_options = {f"{row['nome_pop']} (ID: {row['id']})": row['id'] for _, row in pops_df.iterrows()}
             selected_pop = st.selectbox("Selecione um POP para visualizar rotas:", list(pop_options.keys()))
             pop_id = pop_options[selected_pop]
             
@@ -406,8 +406,10 @@ def main():
             rotas_df = get_rotas_by_pop(pop_id)
             
             if not rotas_df.empty:
+                st.info(f"Total de rotas encontradas: {len(rotas_df)}")
+                
                 for _, rota in rotas_df.iterrows():
-                    with st.expander(f"🛣️ {rota['nome_rota']} - Status: {rota['status']}"):
+                    with st.expander(f"🛣️ {rota['nome_rota']} - Status: {rota['status']}", key=f"view_{rota['id']}"):
                         col1, col2 = st.columns([2, 1])
                         
                         with col1:
@@ -441,11 +443,26 @@ def main():
                                 update_status_rota(rota['id'], novo_status, observacoes, usuario['username'])
                                 st.success("Status atualizado com sucesso!")
                                 st.rerun()
+                            
+                            # Botão de excluir apenas para admin
+                            if usuario_eh_admin():
+                                if st.button("🗑️ Excluir Rota", key=f"user_del_{rota['id']}"):
+                                    delete_rota(rota['id'])
+                                    st.success("Rota excluída!")
+                                    st.rerun()
                         
-                        if rota['data_atualizacao']:
-                            data_formatada = pd.to_datetime(rota['data_atualizacao']).strftime('%d/%m/%Y %H:%M')
-                            usuario_atualizacao = rota['usuario_atualizacao'] or 'N/A'
-                            st.caption(f"Última atualização: {data_formatada} por {usuario_atualizacao}")
+                        # Informações da rota
+                        st.markdown("---")
+                        col_info1, col_info2 = st.columns(2)
+                        with col_info1:
+                            st.write(f"**ID da Rota:** {rota['id']}")
+                            st.write(f"**Status atual:** {rota['status']}")
+                        with col_info2:
+                            if rota['data_atualizacao']:
+                                data_formatada = pd.to_datetime(rota['data_atualizacao']).strftime('%d/%m/%Y %H:%M')
+                                usuario_atualizacao = rota['usuario_atualizacao'] or 'N/A'
+                                st.write(f"**Última atualização:** {data_formatada}")
+                                st.write(f"**Por:** {usuario_atualizacao}")
             else:
                 st.info("Este POP não possui rotas cadastradas.")
         else:
