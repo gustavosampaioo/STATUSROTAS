@@ -21,6 +21,10 @@ def generate_session_token():
     """Gera token de sessão seguro"""
     return secrets.token_hex(32)
 
+def generate_unique_key(prefix, additional_info=""):
+    """Gera uma chave única para elementos do Streamlit"""
+    return f"{prefix}_{additional_info}_{secrets.token_hex(8)}"
+
 # Inicialização do banco de dados
 def init_db():
     conn = sqlite3.connect('pops_rotas.db', check_same_thread=False)
@@ -218,12 +222,6 @@ def logout():
     st.session_state.clear()
     st.rerun()
 
-def verificar_autenticacao():
-    if 'logado' not in st.session_state or not st.session_state['logado']:
-        st.warning("⚠️ Você precisa fazer login para acessar o sistema.")
-        login()
-        st.stop()
-
 def usuario_eh_admin():
     return st.session_state.get('usuario', {}).get('permissao') == 'ADMIN'
 
@@ -245,7 +243,7 @@ def main():
         usuario = st.session_state['usuario']
         st.write(f"**Usuário:** {usuario['nome_completo']}")
     with col3:
-        if st.button("🚪 Sair"):
+        if st.button("🚪 Sair", key="logout_button"):
             logout()
     
     st.write(f"**Permissão:** {'Administrador' if usuario_eh_admin() else 'Usuário'} | **Matrícula:** {usuario['matricula']}")
@@ -257,7 +255,7 @@ def main():
     else:
         menu_options = ["Visualizar Rotas", "Estatísticas"]
     
-    menu = st.sidebar.selectbox("Menu", menu_options)
+    menu = st.sidebar.selectbox("Menu", menu_options, key="main_menu")
     
     if menu == "Cadastrar POP" and usuario_eh_admin():
         st.header("📝 Cadastrar Novo POP")
@@ -295,19 +293,19 @@ def main():
             
             st.subheader("Ações")
             pop_options = {f"{row['nome_pop']} (ID: {row['id']})": row['id'] for _, row in pops_df.iterrows()}
-            selected_pop = st.selectbox("Selecione um POP para ações:", list(pop_options.keys()))
+            selected_pop = st.selectbox("Selecione um POP para ações:", list(pop_options.keys()), key="pop_selection")
             
             col1, col2 = st.columns(2)
             
             with col1:
-                if st.button("🗑️ Excluir POP Selecionado", type="secondary"):
+                if st.button("🗑️ Excluir POP Selecionado", type="secondary", key="delete_pop_button"):
                     pop_id = pop_options[selected_pop]
                     delete_pop(pop_id)
                     st.success("POP excluído com sucesso!")
                     st.rerun()
             
             with col2:
-                if st.button("🔄 Atualizar Lista"):
+                if st.button("🔄 Atualizar Lista", key="refresh_pops_button"):
                     st.rerun()
                     
         else:
@@ -320,32 +318,36 @@ def main():
         
         if not pops_df.empty:
             pop_options = {f"{row['nome_pop']} (ID: {row['id']})": row['id'] for _, row in pops_df.iterrows()}
-            selected_pop = st.selectbox("Selecione um POP:", list(pop_options.keys()))
+            selected_pop = st.selectbox("Selecione um POP:", list(pop_options.keys()), key="pop_select_manage")
             pop_id = pop_options[selected_pop]
             
             st.subheader("Adicionar Nova Rota")
             col1, col2 = st.columns([3, 1])
             
             with col1:
-                nova_rota = st.text_input("Nome da Nova Rota", placeholder="Digite o nome da rota...")
+                nova_rota = st.text_input("Nome da Nova Rota", placeholder="Digite o nome da rota...", key="nova_rota_input")
             
             with col2:
-                if st.button("➕ Adicionar Rota", use_container_width=True) and nova_rota:
-                    add_rota(pop_id, nova_rota)
-                    st.success(f"Rota '{nova_rota}' adicionada!")
-                    st.rerun()
-                elif st.button("➕ Adicionar Rota", use_container_width=True) and not nova_rota:
-                    st.error("Digite um nome para a rota!")
+                add_button_key = generate_unique_key("add_rota_button", f"pop_{pop_id}")
+                if st.button("➕ Adicionar Rota", use_container_width=True, key=add_button_key):
+                    if nova_rota:
+                        add_rota(pop_id, nova_rota)
+                        st.success(f"Rota '{nova_rota}' adicionada!")
+                        st.rerun()
+                    else:
+                        st.error("Digite um nome para a rota!")
             
             st.subheader(f"Rotas do POP Selecionado")
             rotas_df = get_rotas_by_pop(pop_id)
             
             if not rotas_df.empty:
-                for _, rota in rotas_df.iterrows():
-                    with st.expander(f"🛣️ {rota['nome_rota']} - Status: {rota['status']}", expanded=False):
+                for index, rota in rotas_df.iterrows():
+                    expander_key = generate_unique_key("rota_expander", f"rota_{rota['id']}")
+                    with st.expander(f"🛣️ {rota['nome_rota']} - Status: {rota['status']}", expanded=False, key=expander_key):
                         col1, col2, col3 = st.columns([2, 2, 1])
                         
                         with col1:
+                            status_key = generate_unique_key("status_select", f"rota_{rota['id']}")
                             novo_status = st.selectbox(
                                 "Atualizar Status:",
                                 [
@@ -354,7 +356,7 @@ def main():
                                     "FUSÃO PENDENTE",
                                     "FUSÃO FINALIZADA"
                                 ],
-                                key=f"status_{rota['id']}",
+                                key=status_key,
                                 index=[
                                     "LANÇAMENTO PENDENTE",
                                     "LANÇAMENTO FINALIZADO", 
@@ -364,21 +366,24 @@ def main():
                             )
                         
                         with col2:
+                            obs_key = generate_unique_key("obs_text", f"rota_{rota['id']}")
                             observacoes = st.text_area(
                                 "Observações:",
                                 value=rota['observacoes'] if rota['observacoes'] else "",
-                                key=f"obs_{rota['id']}",
+                                key=obs_key,
                                 height=100,
                                 placeholder="Digite observações sobre esta rota..."
                             )
                         
                         with col3:
-                            if st.button("💾 Salvar", key=f"save_{rota['id']}", use_container_width=True):
+                            save_key = generate_unique_key("save_button", f"rota_{rota['id']}")
+                            if st.button("💾 Salvar", key=save_key, use_container_width=True):
                                 update_status_rota(rota['id'], novo_status, observacoes, usuario['username'])
                                 st.success("Status atualizado!")
                                 st.rerun()
                             
-                            if st.button("🗑️ Excluir", key=f"del_{rota['id']}", use_container_width=True):
+                            delete_key = generate_unique_key("delete_button", f"rota_{rota['id']}")
+                            if st.button("🗑️ Excluir", key=delete_key, use_container_width=True):
                                 delete_rota(rota['id'])
                                 st.success("Rota excluída!")
                                 st.rerun()
@@ -400,18 +405,20 @@ def main():
         
         if not pops_df.empty:
             pop_options = {f"{row['nome_pop']}": row['id'] for _, row in pops_df.iterrows()}
-            selected_pop = st.selectbox("Selecione um POP para visualizar rotas:", list(pop_options.keys()))
+            selected_pop = st.selectbox("Selecione um POP para visualizar rotas:", list(pop_options.keys()), key="user_pop_select")
             pop_id = pop_options[selected_pop]
             
             st.subheader(f"Rotas do POP: {selected_pop}")
             rotas_df = get_rotas_by_pop(pop_id)
             
             if not rotas_df.empty:
-                for _, rota in rotas_df.iterrows():
-                    with st.expander(f"🛣️ {rota['nome_rota']} - Status: {rota['status']}", expanded=False):
+                for index, rota in rotas_df.iterrows():
+                    expander_key = generate_unique_key("user_rota_expander", f"rota_{rota['id']}")
+                    with st.expander(f"🛣️ {rota['nome_rota']} - Status: {rota['status']}", expanded=False, key=expander_key):
                         col1, col2 = st.columns([2, 1])
                         
                         with col1:
+                            status_key = generate_unique_key("user_status_select", f"rota_{rota['id']}")
                             novo_status = st.selectbox(
                                 "Atualizar Status:",
                                 [
@@ -420,7 +427,7 @@ def main():
                                     "FUSÃO PENDENTE",
                                     "FUSÃO FINALIZADA"
                                 ],
-                                key=f"user_status_{rota['id']}",
+                                key=status_key,
                                 index=[
                                     "LANÇAMENTO PENDENTE",
                                     "LANÇAMENTO FINALIZADO", 
@@ -429,16 +436,18 @@ def main():
                                 ].index(rota['status'])
                             )
                             
+                            obs_key = generate_unique_key("user_obs_text", f"rota_{rota['id']}")
                             observacoes = st.text_area(
                                 "Observações:",
                                 value=rota['observacoes'] if rota['observacoes'] else "",
-                                key=f"user_obs_{rota['id']}",
+                                key=obs_key,
                                 height=100,
                                 placeholder="Digite observações sobre esta rota..."
                             )
                         
                         with col2:
-                            if st.button("💾 Salvar Alterações", key=f"user_save_{rota['id']}", use_container_width=True):
+                            save_key = generate_unique_key("user_save_button", f"rota_{rota['id']}")
+                            if st.button("💾 Salvar Alterações", key=save_key, use_container_width=True):
                                 update_status_rota(rota['id'], novo_status, observacoes, usuario['username'])
                                 st.success("Status atualizado com sucesso!")
                                 st.rerun()
@@ -556,9 +565,9 @@ def main():
                 usuario_options = {f"{row['nome_completo']} ({row['username']})": row['id'] for _, row in usuarios_df.iterrows() if row['username'] != 'admin'}
                 
                 if usuario_options:
-                    selected_usuario = st.selectbox("Selecione um usuário para excluir:", list(usuario_options.keys()))
+                    selected_usuario = st.selectbox("Selecione um usuário para excluir:", list(usuario_options.keys()), key="user_delete_select")
                     
-                    if st.button("🗑️ Excluir Usuário Selecionado", type="secondary"):
+                    if st.button("🗑️ Excluir Usuário Selecionado", type="secondary", key="delete_user_button"):
                         usuario_id = usuario_options[selected_usuario]
                         excluir_usuario(usuario_id)
                         st.success("Usuário excluído com sucesso!")
