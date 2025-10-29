@@ -392,104 +392,82 @@ def main():
         else:
             st.info("Cadastre um POP primeiro para gerenciar rotas.")
     
-    elif menu == "Visualizar Rotas":
-        st.header("👀 Visualizar e Atualizar Rotas")
+elif menu == "Visualizar Rotas":
+    st.header("👀 Visualizar e Atualizar Rotas")
+    
+    pops_df = get_all_pops()
+    
+    if not pops_df.empty:
+        pop_options = {f"{row['nome_pop']} (ID: {row['id']})": row['id'] for _, row in pops_df.iterrows()}
+        selected_pop = st.selectbox("Selecione um POP para visualizar rotas:", list(pop_options.keys()))
+        pop_id = pop_options[selected_pop]
         
-        pops_df = get_all_pops()
+        st.subheader(f"Rotas do POP: {selected_pop}")
+        rotas_df = get_rotas_by_pop(pop_id)
         
-        if not pops_df.empty:
-            pop_options = {f"{row['nome_pop']} (ID: {row['id']})": row['id'] for _, row in pops_df.iterrows()}
-            selected_pop = st.selectbox("Selecione um POP para visualizar rotas:", list(pop_options.keys()))
-            pop_id = pop_options[selected_pop]
+        if not rotas_df.empty:
+            st.info(f"Total de rotas encontradas: {len(rotas_df)}")
             
-            st.subheader(f"Rotas do POP: {selected_pop}")
-            rotas_df = get_rotas_by_pop(pop_id)
-            
-            if not rotas_df.empty:
-                st.info(f"Total de rotas encontradas: {len(rotas_df)}")
-                
-                # Exibir as rotas em cards simples sem expanders problemáticos
-                for index, rota in rotas_df.iterrows():
-                    # Criar um container para cada rota
-                    with st.container():
-                        st.markdown("---")
+            # Exibir as rotas em expanders (igual em Gerenciar Rotas)
+            for _, rota in rotas_df.iterrows():
+                with st.expander(f"🛣️ {rota['nome_rota']} - Status: {rota['status']}", expanded=False):
+                    col1, col2, col3 = st.columns([2, 2, 1])
+                    
+                    with col1:
+                        novo_status = st.selectbox(
+                            "Atualizar Status:",
+                            [
+                                "LANÇAMENTO PENDENTE",
+                                "LANÇAMENTO FINALIZADO", 
+                                "FUSÃO PENDENTE",
+                                "FUSÃO FINALIZADA"
+                            ],
+                            key=f"status_view_{rota['id']}",
+                            index=[
+                                "LANÇAMENTO PENDENTE",
+                                "LANÇAMENTO FINALIZADO", 
+                                "FUSÃO PENDENTE",
+                                "FUSÃO FINALIZADA"
+                            ].index(rota['status'])
+                        )
+                    
+                    with col2:
+                        observacoes = st.text_area(
+                            "Observações:",
+                            value=rota['observacoes'] if rota['observacoes'] else "",
+                            key=f"obs_view_{rota['id']}",
+                            height=100
+                        )
+                    
+                    with col3:
+                        if st.button("💾 Salvar", key=f"save_view_{rota['id']}"):
+                            update_status_rota(rota['id'], novo_status, observacoes, usuario['username'])
+                            st.success("Status atualizado!")
+                            st.rerun()
                         
-                        # Header da rota
-                        col_header1, col_header2 = st.columns([3, 1])
-                        with col_header1:
-                            st.subheader(f"🛣️ {rota['nome_rota']}")
-                        with col_header2:
-                            st.write(f"**Status:** {rota['status']}")
-                        
-                        # Informações da rota
-                        col_info1, col_info2 = st.columns(2)
-                        with col_info1:
-                            st.write(f"**ID da Rota:** {rota['id']}")
-                            if rota['observacoes']:
-                                st.write(f"**Observações atuais:** {rota['observacoes']}")
-                            else:
-                                st.write("**Observações atuais:** Nenhuma observação cadastrada")
-                        
-                        with col_info2:
-                            if rota['data_atualizacao']:
-                                data_formatada = pd.to_datetime(rota['data_atualizacao']).strftime('%d/%m/%Y %H:%M')
-                                usuario_atualizacao = rota['usuario_atualizacao'] or 'N/A'
-                                st.write(f"**Última atualização:** {data_formatada}")
-                                st.write(f"**Por:** {usuario_atualizacao}")
-                        
-                        # Formulário para atualização (apenas status e observações)
-                        st.markdown("### Atualizar Status")
-                        with st.form(key=f"form_update_{pop_id}_{rota['id']}_{index}"):
-                            col_form1, col_form2 = st.columns(2)
-                            
-                            with col_form1:
-                                novo_status = st.selectbox(
-                                    "Novo Status:",
-                                    [
-                                        "LANÇAMENTO PENDENTE",
-                                        "LANÇAMENTO FINALIZADO", 
-                                        "FUSÃO PENDENTE",
-                                        "FUSÃO FINALIZADA"
-                                    ],
-                                    key=f"status_{pop_id}_{rota['id']}_{index}",
-                                    index=[
-                                        "LANÇAMENTO PENDENTE",
-                                        "LANÇAMENTO FINALIZADO", 
-                                        "FUSÃO PENDENTE",
-                                        "FUSÃO FINALIZADA"
-                                    ].index(rota['status'])
-                                )
-                            
-                            with col_form2:
-                                nova_observacao = st.text_area(
-                                    "Nova Observação:",
-                                    value=rota['observacoes'] if rota['observacoes'] else "",
-                                    key=f"obs_{pop_id}_{rota['id']}_{index}",
-                                    height=100,
-                                    placeholder="Digite uma nova observação..."
-                                )
-                            
-                            # Botões de ação
-                            col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 2])
-                            with col_btn1:
-                                submitted = st.form_submit_button("💾 Salvar Alterações")
-                            with col_btn2:
-                                if usuario_eh_admin():
-                                    if st.form_submit_button("🗑️ Excluir Rota"):
-                                        delete_rota(rota['id'])
-                                        st.success("Rota excluída!")
-                                        st.rerun()
-                            
-                            if submitted:
-                                update_status_rota(rota['id'], novo_status, nova_observacao, usuario['username'])
-                                st.success("Status atualizado com sucesso!")
+                        # Apenas admin pode excluir rotas
+                        if usuario_eh_admin():
+                            if st.button("🗑️ Excluir", key=f"del_view_{rota['id']}"):
+                                delete_rota(rota['id'])
+                                st.success("Rota excluída!")
                                 st.rerun()
+                    
+                    # Informações adicionais
+                    if rota['data_atualizacao']:
+                        data_formatada = pd.to_datetime(rota['data_atualizacao']).strftime('%d/%m/%Y %H:%M')
+                        usuario_atualizacao = rota['usuario_atualizacao'] or 'N/A'
+                        st.caption(f"Última atualização: {data_formatada} por {usuario_atualizacao}")
+                    
+                    st.caption(f"ID da Rota: {rota['id']}")
+            
+            # Botão para atualizar a lista
+            if st.button("🔄 Atualizar Lista de Rotas"):
+                st.rerun()
                 
-                st.markdown("---")
-            else:
-                st.info("Este POP não possui rotas cadastradas.")
         else:
-            st.info("Nenhum POP cadastrado no sistema.")
+            st.info("Este POP não possui rotas cadastradas.")
+    else:
+        st.info("Nenhum POP cadastrado no sistema.")
     
     elif menu == "Estatísticas":
         st.header("📈 Estatísticas do Sistema")
