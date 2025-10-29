@@ -530,23 +530,14 @@ def main():
                                 
                                 if status_fusao == "EM ANDAMENTO":
                                     st.write("**Status Alimentação:**")
-                                    col_btn1, col_btn2 = st.columns(2)
-                                    with col_btn1:
-                                        if st.button("🟢 ALIMENTADA", key=f"alim_{rota['id']}"):
-                                            status_alimentacao = "ALIMENTADA"
-                                            update_status_rota(rota['id'], rota['status_lancamento'], status_fusao, 
-                                                              rota['observacoes_lancamento'], rota['observacoes_fusao'], 
-                                                              status_alimentacao, usuario['username'])
-                                            st.success("Status de alimentação atualizado!")
-                                            st.rerun()
-                                    with col_btn2:
-                                        if st.button("🔴 SEM SINAL", key=f"sem_sinal_{rota['id']}"):
-                                            status_alimentacao = "SEM SINAL"
-                                            update_status_rota(rota['id'], rota['status_lancamento'], status_fusao, 
-                                                              rota['observacoes_lancamento'], rota['observacoes_fusao'], 
-                                                              status_alimentacao, usuario['username'])
-                                            st.success("Status de alimentação atualizado!")
-                                            st.rerun()
+                                    
+                                    # Seleção do status de alimentação
+                                    status_alimentacao = st.selectbox(
+                                        "Selecione o Status de Alimentação:",
+                                        ["ALIMENTADA", "EM PRODUÇÃO", "SEM SINAL PARCIAL", "SEM SINAL TOTAL"],
+                                        key=f"alim_select_{rota['id']}",
+                                        index=0 if not rota['status_alimentacao'] else ["ALIMENTADA", "EM PRODUÇÃO", "SEM SINAL PARCIAL", "SEM SINAL TOTAL"].index(rota['status_alimentacao'])
+                                    )
                                     
                                     # Mostrar status atual da alimentação
                                     if rota['status_alimentacao']:
@@ -630,7 +621,22 @@ def main():
                         "FINALIZADA": "🟢"
                     }
                     
-                    with st.expander(f"🛣️ {rota['nome_rota']} - Cidade: {rota['nome_cidade']} - Lançamento: {cores_lancamento[status_lancamento]} {status_lancamento} - Fusão: {cores_fusao[status_fusao]} {status_fusao}", expanded=False):
+                    # Definir cores para status de alimentação
+                    cores_alimentacao = {
+                        "ALIMENTADA": "🟢",
+                        "EM PRODUÇÃO": "🟡",
+                        "SEM SINAL PARCIAL": "🟠",
+                        "SEM SINAL TOTAL": "🔴"
+                    }
+                    
+                    # Texto do expander
+                    expander_text = f"🛣️ {rota['nome_rota']} - Cidade: {rota['nome_cidade']} - Lançamento: {cores_lancamento[status_lancamento]} {status_lancamento} - Fusão: {cores_fusao[status_fusao]} {status_fusao}"
+                    
+                    # Adicionar status de alimentação se existir
+                    if rota['status_alimentacao']:
+                        expander_text += f" - Alimentação: {cores_alimentacao.get(rota['status_alimentacao'], '⚪')} {rota['status_alimentacao']}"
+                    
+                    with st.expander(expander_text, expanded=False):
                         col1, col2 = st.columns(2)
                         
                         with col1:
@@ -667,23 +673,14 @@ def main():
                             
                             if status_fusao == "EM ANDAMENTO":
                                 st.write("**Status Alimentação:**")
-                                col_btn1, col_btn2 = st.columns(2)
-                                with col_btn1:
-                                    if st.button("🟢 ALIMENTADA", key=f"alim_view_{rota['id']}"):
-                                        status_alimentacao = "ALIMENTADA"
-                                        update_status_rota(rota['id'], rota['status_lancamento'], status_fusao, 
-                                                          rota['observacoes_lancamento'], rota['observacoes_fusao'], 
-                                                          status_alimentacao, usuario['username'])
-                                        st.success("Status de alimentação atualizado!")
-                                        st.rerun()
-                                with col_btn2:
-                                    if st.button("🔴 SEM SINAL", key=f"sem_sinal_view_{rota['id']}"):
-                                        status_alimentacao = "SEM SINAL"
-                                        update_status_rota(rota['id'], rota['status_lancamento'], status_fusao, 
-                                                          rota['observacoes_lancamento'], rota['observacoes_fusao'], 
-                                                          status_alimentacao, usuario['username'])
-                                        st.success("Status de alimentação atualizado!")
-                                        st.rerun()
+                                
+                                # Seleção do status de alimentação
+                                status_alimentacao = st.selectbox(
+                                    "Selecione o Status de Alimentação:",
+                                    ["ALIMENTADA", "EM PRODUÇÃO", "SEM SINAL PARCIAL", "SEM SINAL TOTAL"],
+                                    key=f"alim_select_view_{rota['id']}",
+                                    index=0 if not rota['status_alimentacao'] else ["ALIMENTADA", "EM PRODUÇÃO", "SEM SINAL PARCIAL", "SEM SINAL TOTAL"].index(rota['status_alimentacao'])
+                                )
                                 
                                 # Mostrar status atual da alimentação
                                 if rota['status_alimentacao']:
@@ -884,7 +881,9 @@ if 'logado' in st.session_state and st.session_state['logado']:
         "• 🟢 FINALIZADA\n\n"
         "**Status de Alimentação (quando Fusão em ANDAMENTO):**\n"
         "• 🟢 ALIMENTADA\n"
-        "• 🔴 SEM SINAL"
+        "• 🟡 EM PRODUÇÃO\n"
+        "• 🟠 SEM SINAL PARCIAL\n"
+        "• 🔴 SEM SINAL TOTAL"
     )
 
 # Executar aplicação
