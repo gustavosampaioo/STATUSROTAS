@@ -343,7 +343,7 @@ def main():
             if not rotas_df.empty:
                 for index, rota in rotas_df.iterrows():
                     expander_key = generate_unique_key("rota_expander", f"rota_{rota['id']}")
-                    with st.expander(f"🛣️ {rota['nome_rota']} - Status: {rota['status']}", expanded=False, key=expander_key):
+                    with st.expander(f"🛣️ {rota['nome_rota']} - Status: {rota['status']}", key=expander_key):
                         col1, col2, col3 = st.columns([2, 2, 1])
                         
                         with col1:
@@ -414,7 +414,7 @@ def main():
             if not rotas_df.empty:
                 for index, rota in rotas_df.iterrows():
                     expander_key = generate_unique_key("user_rota_expander", f"rota_{rota['id']}")
-                    with st.expander(f"🛣️ {rota['nome_rota']} - Status: {rota['status']}", expanded=False, key=expander_key):
+                    with st.expander(f"🛣️ {rota['nome_rota']} - Status: {rota['status']}", key=expander_key):
                         col1, col2 = st.columns([2, 1])
                         
                         with col1:
