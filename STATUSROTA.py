@@ -128,7 +128,7 @@ def excluir_usuario(usuario_id):
     conn.commit()
     conn.close()
 
-# Funções para operações no banco de dados (lógica original que funcionava)
+# Funções para operações no banco de dados
 def add_pop(nome_pop, localizacao, capacidade):
     conn = sqlite3.connect('pops_rotas.db', check_same_thread=False)
     c = conn.cursor()
@@ -241,7 +241,7 @@ def main():
         usuario = st.session_state['usuario']
         st.write(f"**Usuário:** {usuario['nome_completo']}")
     with col3:
-        if st.button("🚪 Sair", key="logout_button"):
+        if st.button("🚪 Sair"):
             logout()
     
     st.write(f"**Permissão:** {'Administrador' if usuario_eh_admin() else 'Usuário'} | **Matrícula:** {usuario['matricula']}")
@@ -253,7 +253,7 @@ def main():
     else:
         menu_options = ["Visualizar Rotas", "Estatísticas"]
     
-    menu = st.sidebar.selectbox("Menu", menu_options, key="main_menu")
+    menu = st.sidebar.selectbox("Menu", menu_options)
     
     if menu == "Cadastrar POP" and usuario_eh_admin():
         st.header("📝 Cadastrar Novo POP")
@@ -291,19 +291,19 @@ def main():
             
             st.subheader("Ações")
             pop_options = {f"{row['nome_pop']} (ID: {row['id']})": row['id'] for _, row in pops_df.iterrows()}
-            selected_pop = st.selectbox("Selecione um POP para ações:", list(pop_options.keys()), key="pop_selection")
+            selected_pop = st.selectbox("Selecione um POP para ações:", list(pop_options.keys()))
             
             col1, col2 = st.columns(2)
             
             with col1:
-                if st.button("🗑️ Excluir POP Selecionado", type="secondary", key="delete_pop_button"):
+                if st.button("🗑️ Excluir POP Selecionado"):
                     pop_id = pop_options[selected_pop]
                     delete_pop(pop_id)
                     st.success("POP excluído com sucesso!")
                     st.rerun()
             
             with col2:
-                if st.button("🔄 Atualizar Lista", key="refresh_pops_button"):
+                if st.button("🔄 Atualizar Lista"):
                     st.rerun()
                     
         else:
@@ -317,19 +317,18 @@ def main():
         if not pops_df.empty:
             # Selecionar POP
             pop_options = {f"{row['nome_pop']} (ID: {row['id']})": row['id'] for _, row in pops_df.iterrows()}
-            selected_pop = st.selectbox("Selecione um POP:", list(pop_options.keys()), key="pop_select_manage")
+            selected_pop = st.selectbox("Selecione um POP:", list(pop_options.keys()))
             pop_id = pop_options[selected_pop]
             
-            # Adicionar nova rota - LÓGICA ORIGINAL QUE FUNCIONAVA
+            # Adicionar nova rota
             st.subheader("Adicionar Nova Rota")
             col1, col2 = st.columns([3, 1])
             
             with col1:
-                nova_rota = st.text_input("Nome da Nova Rota", key="nova_rota_input")
+                nova_rota = st.text_input("Nome da Nova Rota")
             
             with col2:
-                # Botão simples como no código original
-                if st.button("➕ Adicionar Rota", key="add_rota_button"):
+                if st.button("➕ Adicionar Rota"):
                     if nova_rota:
                         add_rota(pop_id, nova_rota)
                         st.success(f"Rota '{nova_rota}' adicionada!")
@@ -337,13 +336,13 @@ def main():
                     else:
                         st.error("Digite um nome para a rota!")
             
-            # Listar e gerenciar rotas do POP selecionado - LÓGICA ORIGINAL
+            # Listar e gerenciar rotas do POP selecionado
             st.subheader(f"Rotas do POP Selecionado")
             rotas_df = get_rotas_by_pop(pop_id)
             
             if not rotas_df.empty:
                 for _, rota in rotas_df.iterrows():
-                    with st.expander(f"🛣️ {rota['nome_rota']} - Status: {rota['status']}", key=f"expander_{rota['id']}"):
+                    with st.expander(f"🛣️ {rota['nome_rota']} - Status: {rota['status']}"):
                         col1, col2, col3 = st.columns([2, 2, 1])
                         
                         with col1:
@@ -400,7 +399,7 @@ def main():
         
         if not pops_df.empty:
             pop_options = {f"{row['nome_pop']}": row['id'] for _, row in pops_df.iterrows()}
-            selected_pop = st.selectbox("Selecione um POP para visualizar rotas:", list(pop_options.keys()), key="user_pop_select")
+            selected_pop = st.selectbox("Selecione um POP para visualizar rotas:", list(pop_options.keys()))
             pop_id = pop_options[selected_pop]
             
             st.subheader(f"Rotas do POP: {selected_pop}")
@@ -408,7 +407,7 @@ def main():
             
             if not rotas_df.empty:
                 for _, rota in rotas_df.iterrows():
-                    with st.expander(f"🛣️ {rota['nome_rota']} - Status: {rota['status']}", key=f"user_expander_{rota['id']}"):
+                    with st.expander(f"🛣️ {rota['nome_rota']} - Status: {rota['status']}"):
                         col1, col2 = st.columns([2, 1])
                         
                         with col1:
@@ -558,9 +557,9 @@ def main():
                 usuario_options = {f"{row['nome_completo']} ({row['username']})": row['id'] for _, row in usuarios_df.iterrows() if row['username'] != 'admin'}
                 
                 if usuario_options:
-                    selected_usuario = st.selectbox("Selecione um usuário para excluir:", list(usuario_options.keys()), key="user_delete_select")
+                    selected_usuario = st.selectbox("Selecione um usuário para excluir:", list(usuario_options.keys()))
                     
-                    if st.button("🗑️ Excluir Usuário Selecionado", type="secondary", key="delete_user_button"):
+                    if st.button("🗑️ Excluir Usuário Selecionado"):
                         usuario_id = usuario_options[selected_usuario]
                         excluir_usuario(usuario_id)
                         st.success("Usuário excluído com sucesso!")
